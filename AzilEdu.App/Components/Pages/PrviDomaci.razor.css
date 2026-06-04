@@ -1,0 +1,26 @@
+﻿.crvena{
+    color:red;
+}
+
+.plava{
+    color:blue;
+}
+
+.poruka {
+    padding: 12px;
+    border: 1px solid #b6d4fe;
+    background: #eef6ff;
+}
+
+.kartica {
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 16px;
+    max-width: 300px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.kartica .status{
+    font-weight:700;
+    color:darkgreen;
+}

@@ -1,0 +1,137 @@
+﻿@page "/PrviDomaci"
+@rendermode InteractiveServer
+
+<h2>1. Zadatak</h2>
+
+<p class="@boja">Ovo ce minjat boju</p>
+<button @onclick="PromjeniBoju">Botun</button>
+
+@code
+{
+    string boja = "crvena";
+    void PromjeniBoju()
+    {
+        if (boja == "crvena")
+            boja = "plava";
+        else
+            boja = "crvena";
+    }
+}
+
+
+<h2>2. zadatak (Brojac)</h2>
+
+<p>Broj klikova: @brojKlikova</p>
+<button @onclick="PovecajBrojac">Povecaj brojac</button>
+<button @onclick="SmanjiBrojac">Smanji brojac</button>
+
+@code {
+    int brojKlikova = 0;
+    void PovecajBrojac()
+    {
+        brojKlikova++;
+    }
+
+    void SmanjiBrojac()
+    {
+        brojKlikova--;
+    }
+}
+
+<h2>3.zadatak (forma)</h2>
+<label>
+    Ime:
+    <input @bind="ime" />
+    <input @bind="prezime"/>
+</label>
+
+<p>Pozdrav: @ime @prezime </p>
+
+@code
+{
+    string ime = "";
+    string prezime = "";
+}
+
+<h2>4.zadatak (Vidljivost)</h2>
+
+<button @onclick="PromijeniVidljivost">Prikaži ili sakrij</button>
+
+@if (prikaziPoruku)
+{
+    <p class="poruka">Ovo je važna poruka.</p>
+}
+
+@code {
+    bool prikaziPoruku = false;
+
+    void PromijeniVidljivost()
+    {
+        prikaziPoruku = !prikaziPoruku;
+    }
+}
+
+<h2>5.zadatka (lista igara)</h2>
+<ul>
+    @foreach(string igra in igre)
+    {
+        <li>@igra</li>
+    }
+</ul>
+@code{
+    List<string> igre = new()
+    {
+        "Binding of Isaac",
+        "Hades",
+        "Darkest Dungeon",
+    };
+}
+
+<h2>6.zadatak (to do list)</h2>
+<label> 
+    Stavka: 
+    <input @bind="stavka"/>
+</label>
+<button @onclick="dodajStavku">Dodaj</button>
+
+<ul>
+    @foreach (string stvar in todo)
+    {
+        <li>@stvar</li>
+    }
+</ul>
+
+@code{
+    string stavka = "";
+    List<string> todo = new()
+    {
+        "Nauciti Blazor",
+        "Nauciti React",
+        "Nauciti svega po malo",
+    };
+
+    void dodajStavku()
+    {
+        if (!string.IsNullOrWhiteSpace(stavka))
+        {
+            todo.Add(stavka);
+            stavka = "";
+        }
+    }
+}
+
+
+<h2>7. zadatak (status kartica)</h2>
+
+<section class="kartica">
+    <h3>@nazivAplikacije</h3>
+    <p>@poruka</p>
+    <p class="status">Status: @status</p>
+</section>
+
+@code {
+    string nazivAplikacije = "AzilEdu";
+    string poruka = "Aplikacija radi normalno.";
+    string status = "Aktivno";
+}
+
