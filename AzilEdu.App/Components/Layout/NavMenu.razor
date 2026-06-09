@@ -1,31 +1,25 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">AzilEdu.App</a>
-    </div>
-</div>
+﻿<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
+        Home
+    </MudNavLink>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+    <MudNavLink Href="/animals" Icon="@Icons.Material.Filled.Pets">
+        Animals
+    </MudNavLink>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    <MudNavLink Href="/species" Icon="@Icons.Material.Filled.Category">
+        Species
+    </MudNavLink>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="Status">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Status
-            </NavLink>
-        </div>
+    <MudNavLink Href="/breeds" Icon="@Icons.Material.Filled.Label">
+        Breeds
+    </MudNavLink>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="PrviDomaci">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Domaci
-            </NavLink>
+    <MudNavLink Href="/adopters" Icon="@Icons.Material.Filled.People">
+        Adopters
+    </MudNavLink>
 
-        </div>
-    </nav>
-</div>
-
+    <MudNavLink Href="/adoptions" Icon="@Icons.Material.Filled.Favorite">
+        Adoptions
+    </MudNavLink>
+</MudNavMenu>
