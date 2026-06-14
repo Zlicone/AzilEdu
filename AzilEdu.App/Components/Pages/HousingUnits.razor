@@ -1,0 +1,229 @@
+﻿@page "/housing-units"
+@rendermode InteractiveServer
+@using AzilEdu.Shared.Models
+
+<PageTitle>Smještajne jedinice</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-2">Smještajne jedinice</MudText>
+<MudText Typo="Typo.body1" Class="mb-4">
+    Ovdje se prikazuje pregled smještajnih jedinica u azilu: bokseva, soba i karantena.
+</MudText>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="3">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle2">Ukupno jedinica</MudText>
+            <MudText Typo="Typo.h5">@TotalUnits</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="3">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle2">Aktivne</MudText>
+            <MudText Typo="Typo.h5">@ActiveUnits</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="3">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle2">Pune</MudText>
+            <MudText Typo="Typo.h5">@FullUnits</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="3">
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.subtitle2">Slobodni kapacitet</MudText>
+            <MudText Typo="Typo.h5">@FreeCapacity</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Class="mb-4">
+    <MudButton OnClick="@ShowAll">Sve</MudButton>
+    <MudButton OnClick="@ShowActive">Aktivne</MudButton>
+    <MudButton OnClick="@ShowFull">Pune</MudButton>
+    <MudButton OnClick="@ShowFree">Slobodno</MudButton>
+</MudButtonGroup>
+
+<MudTable Items="@FilteredHousingUnits" Hover="true" Striped="true" Bordered="true" Dense="true">
+    <HeaderContent>
+        <MudTh>Slika</MudTh>
+        <MudTh>Naziv</MudTh>
+        <MudTh>Tip</MudTh>
+        <MudTh>Kapacitet</MudTh>
+        <MudTh>Zauzeto</MudTh>
+        <MudTh>Slobodno</MudTh>
+        <MudTh>Zadnje čišćenje</MudTh>
+        <MudTh>Status</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Slika">
+            <MudAvatar Size="Size.Large">
+                <MudImage Src="@context.ImageUrl" Alt="@context.Name" />
+            </MudAvatar>
+        </MudTd>
+        <MudTd DataLabel="Naziv">@context.Name</MudTd>
+        <MudTd DataLabel="Tip">@context.UnitType</MudTd>
+        <MudTd DataLabel="Kapacitet">@context.Capacity</MudTd>
+        <MudTd DataLabel="Zauzeto">@context.Occupied</MudTd>
+        <MudTd DataLabel="Slobodno">@GetFreeCapacity(context)</MudTd>
+
+        <MudTd DataLabel="Zadnje čišćenje">@GetCleaningDateText(context)</MudTd>
+
+        <MudTd DataLabel="Status">
+            <MudChip T="string" Color="@GetUnitStatusColor(context)" Variant="Variant.Filled">
+                @GetUnitStatusText(context)
+            </MudChip>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+
+    private string selectedHousingFilter = "Sve";
+
+    private IEnumerable<HousingUnit> FilteredHousingUnits =>
+        selectedHousingFilter switch
+        {
+            "Aktivne" => housingUnits.Where(unit => unit.IsActive),
+            "Pune" => housingUnits.Where(unit => GetFreeCapacity(unit) == 0),
+            "Slobodno" => housingUnits.Where(unit => unit.IsActive && GetFreeCapacity(unit) > 0),
+            _ => housingUnits
+        };
+
+    private void ShowAll() => selectedHousingFilter = "Sve";
+    private void ShowActive() => selectedHousingFilter = "Aktivne";
+    private void ShowFull() => selectedHousingFilter = "Pune";
+    private void ShowFree() => selectedHousingFilter = "Slobodno";
+
+
+    private List<HousingUnit> housingUnits = new()
+    {
+        new HousingUnit
+        {
+            Id = 1,
+            Name = "Boks A1",
+            UnitType = "Boks",
+            Capacity = 4,
+            Occupied = 4,
+            LastCleanedAt = new DateTime(2026, 6, 10),
+            IsActive = true,
+            ImageUrl = "slike",
+            Note = "Veliki boks za pse, trenutno popunjen."
+        },
+        new HousingUnit
+        {
+            Id = 2,
+            Name = "Boks A2",
+            UnitType = "Boks",
+            Capacity = 4,
+            Occupied = 2,
+            LastCleanedAt = new DateTime(2026, 6, 9),
+            IsActive = true,
+            ImageUrl = "slike",
+            Note = "Boks za pse sa slobodnim mjestima."
+        },
+        new HousingUnit
+        {
+            Id = 3,
+            Name = "Mačja soba",
+            UnitType = "Soba",
+            Capacity = 6,
+            Occupied = 3,
+            LastCleanedAt = new DateTime(2026, 6, 11),
+            IsActive = true,
+            ImageUrl = "slike",
+            Note = "Prostor za mačke s prozorom."
+        },
+        new HousingUnit
+        {
+            Id = 4,
+            Name = "Karantena 1",
+            UnitType = "Karantena",
+            Capacity = 2,
+            Occupied = 1,
+            LastCleanedAt = null,
+            IsActive = true,
+            ImageUrl = "slike",
+            Note = "Karantena za novopridošle životinje."
+        },
+        new HousingUnit
+        {
+            Id = 5,
+            Name = "Vanjski boks",
+            UnitType = "Boks",
+            Capacity = 3,
+            Occupied = 0,
+            LastCleanedAt = new DateTime(2026, 6, 8),
+            IsActive = false,
+            ImageUrl = "slik",
+            Note = "Trenutno izvan upotrebe zbog popravka."
+        },
+        new HousingUnit
+        {
+            Id = 6,
+            Name = "Dvorišna jedinica",
+            UnitType = "Soba",
+            Capacity = 5,
+            Occupied = 2,
+            LastCleanedAt = new DateTime(2026, 6, 7),
+            IsActive = true,
+            ImageUrl = "slike",
+            Note = "Natkriveni prostor s pristupom dvorištu."
+        }
+    };
+
+    private int TotalUnits => housingUnits.Count;
+
+    private int ActiveUnits => housingUnits.Count(unit => unit.IsActive);
+
+    private int FullUnits => housingUnits.Count(unit => unit.IsActive && unit.Occupied >= unit.Capacity);
+
+    private int FreeCapacity => housingUnits
+        .Where(unit => unit.IsActive)
+        .Sum(unit => unit.Capacity - unit.Occupied);
+
+
+    private int GetFreeCapacity(HousingUnit unit)
+    {
+        return unit.Capacity - unit.Occupied;
+    }
+
+    private string GetCleaningDateText(HousingUnit unit)
+    {
+        if (unit.LastCleanedAt.HasValue)
+        {
+            return unit.LastCleanedAt.Value.ToShortDateString();
+        }
+
+        return "Nije uneseno";
+    }
+
+    private string GetUnitStatusText(HousingUnit unit)
+    {
+        if (!unit.IsActive)
+        {
+            return "Neaktivno";
+        }
+
+        if (unit.Occupied >= unit.Capacity)
+        {
+            return "Puno";
+        }
+
+        return "Slobodno";
+    }
+
+    private Color GetUnitStatusColor(HousingUnit unit)
+    {
+        if (!unit.IsActive)
+        {
+            return Color.Default;
+        }
+
+        if (unit.Occupied >= unit.Capacity)
+        {
+            return Color.Error;
+        }
+
+        return Color.Success;
+    }
+}
