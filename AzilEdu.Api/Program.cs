@@ -41,7 +41,7 @@ using (var scope = app.Services.CreateScope())
                 Gender = "Ženka",
                 Age = 3,
                 ArrivalDate = new DateTime(2025, 10, 12),
-                IsAdopted = false,
+                AnimalStatusId = 1,
                 ImageUrl = "/images/animals/luna.webp",
                 Description = "Mirna i druželjubiva kujica koja voli šetnje."
             },
@@ -53,7 +53,7 @@ using (var scope = app.Services.CreateScope())
                 Gender = "Ženka",
                 Age = 2,
                 ArrivalDate = new DateTime(2025, 11, 5),
-                IsAdopted = true,
+                AnimalStatusId = 3,
                 ImageUrl = "/images/animals/maza.webp",
                 Description = "Zaigrana mačka naviknuta na boravak u zatvorenom prostoru."
             },
@@ -65,7 +65,7 @@ using (var scope = app.Services.CreateScope())
                 Gender = "Mužjak",
                 Age = 5,
                 ArrivalDate = new DateTime(2026, 1, 20),
-                IsAdopted = false,
+                AnimalStatusId = 1,
                 ImageUrl = "/images/animals/rex.webp",
                 Description = "Aktivan pas koji traži iskusnijeg vlasnika."
             },
@@ -77,7 +77,7 @@ using (var scope = app.Services.CreateScope())
                 Gender = "Ženka",
                 Age = null,
                 ArrivalDate = new DateTime(2026, 2, 3),
-                IsAdopted = false,
+                AnimalStatusId = 1,
                 ImageUrl = "/images/animals/nala.webp",
                 Description = "Mlada mačka pronađena bez poznate povijesti."
             },
@@ -89,7 +89,7 @@ using (var scope = app.Services.CreateScope())
                 Gender = "Mužjak",
                 Age = 1,
                 ArrivalDate = null,
-                IsAdopted = false,
+                AnimalStatusId = 2,
                 ImageUrl = "/images/animals/tobi.webp",
                 Description = "Vesel pas kojem datum dolaska još nije potvrđen."
             },
@@ -101,7 +101,7 @@ using (var scope = app.Services.CreateScope())
                 Gender = "Mužjak",
                 Age = 4,
                 ArrivalDate = new DateTime(2025, 9, 18),
-                IsAdopted = true,
+                AnimalStatusId = 3,
                 ImageUrl = "/images/animals/bruno.webp",
                 Description = "Udomljen pas koji ostaje u evidenciji azila."
             }
@@ -178,6 +178,138 @@ using (var scope = app.Services.CreateScope())
                 IsActive = true,
                 ImageUrl = "/images/housing-units/yard-unit.webp",
                 Note = "Natkriveni prostor s pristupom dvorištu."
+            }
+        );
+
+        await db.SaveChangesAsync();
+    }
+
+    if (!await db.Donors.AnyAsync())
+    {
+        db.Donors.AddRange(
+            new Donor
+            {
+                FirstName = "Ivan",
+                LastName = "Perić",
+                OrganizationName = "",
+                Email = "ivan.peric@example.com",
+                Phone = "091 111 2222",
+                Address = "Vukovarska 12",
+                City = "Split",
+                Notes = "Redoviti mjesečni donator.",
+                CreatedAt = new DateTime(2026, 3, 14),
+                DonorTypeId = 1,
+                DonorStatusId = 2
+            },
+            new Donor
+            {
+                FirstName = "",
+                LastName = "",
+                OrganizationName = "Petrić d.o.o.",
+                Email = "info@petric.hr",
+                Phone = "021 333 444",
+                Address = "Poljička cesta 5",
+                City = "Split",
+                Notes = "Donira hranu za pse.",
+                CreatedAt = new DateTime(2026, 1, 20),
+                DonorTypeId = 2,
+                DonorStatusId = 2
+            },
+            new Donor
+            {
+                FirstName = "Marija",
+                LastName = "Kovač",
+                OrganizationName = "",
+                Email = "marija.kovac@example.com",
+                Phone = "098 555 6666",
+                Address = "Šetalište bb",
+                City = "Solin",
+                Notes = "Donirala jednom, javit će se ponovo.",
+                CreatedAt = new DateTime(2026, 5, 2),
+                DonorTypeId = 1,
+                DonorStatusId = 3
+            },
+            new Donor
+            {
+                FirstName = "",
+                LastName = "",
+                OrganizationName = "Udruga Šapa",
+                Email = "kontakt@sapa.hr",
+                Phone = "021 777 888",
+                Address = "Kralja Zvonimira 3",
+                City = "Kaštela",
+                Notes = "Suradnja na akcijama udomljavanja.",
+                CreatedAt = new DateTime(2025, 11, 8),
+                DonorTypeId = 3,
+                DonorStatusId = 4
+            }
+        );
+
+        await db.SaveChangesAsync();
+    }
+
+    if (!await db.Employees.AnyAsync())
+    {
+        db.Employees.AddRange(
+            new Employee
+            {
+                FirstName = "Ana",
+                LastName = "Babić",
+                Email = "ana.babic@aziledu.hr",
+                Phone = "021 100 200",
+                EmployeeNumber = "DJ-001",
+                HireDate = new DateTime(2023, 4, 3),
+                Notes = "Voditeljica smjene.",
+                EmployeePositionId = 1,
+                EmployeeStatusId = 1
+            },
+            new Employee
+            {
+                FirstName = "Marko",
+                LastName = "Jurić",
+                Email = "marko.juric@aziledu.hr",
+                Phone = "021 100 201",
+                EmployeeNumber = "VET-002",
+                HireDate = new DateTime(2022, 9, 12),
+                Notes = "Veterinar, dolazi utorkom i četvrtkom.",
+                EmployeePositionId = 2,
+                EmployeeStatusId = 1
+            },
+            new Employee
+            {
+                FirstName = "Petra",
+                LastName = "Novak",
+                Email = "petra.novak@aziledu.hr",
+                Phone = "021 100 202",
+                EmployeeNumber = "KOO-003",
+                HireDate = new DateTime(2024, 1, 15),
+                Notes = "Koordinira raspored volontera.",
+                EmployeePositionId = 3,
+                EmployeeStatusId = 2
+            },
+            new Employee
+            {
+                FirstName = "Luka",
+                LastName = "Šimić",
+                Email = "luka.simic@aziledu.hr",
+                Phone = "021 100 203",
+                EmployeeNumber = "ADM-004",
+                HireDate = new DateTime(2021, 6, 1),
+                Notes = "Administrator sustava.",
+                EmployeePositionId = 4,
+                EmployeeStatusId = 1
+            },
+            new Employee
+            {
+                FirstName = "Ivana",
+                LastName = "Marić",
+                Email = "ivana.maric@aziledu.hr",
+                Phone = "021 100 204",
+                EmployeeNumber = "DJ-005",
+                HireDate = new DateTime(2020, 11, 23),
+                Notes = "Trenutno neaktivna.",
+                EmployeePositionId = 1,
+                EmployeeStatusId = 3
             }
         );
 
