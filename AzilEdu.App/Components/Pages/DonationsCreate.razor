@@ -1,0 +1,214 @@
+﻿@page "/donations/create"
+@rendermode InteractiveServer
+
+@using AzilEdu.Shared.DTOs
+@using System.Net.Http.Json
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<MudText Typo="Typo.h4" Class="mb-4">Nova donacija</MudText>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+}
+
+@if (isLoading)
+{
+    <div class="d-flex justify-center my-6">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </div>
+}
+else
+{
+    <MudPaper Class="pa-4">
+        <MudSelect T="int" Label="Donator" @bind-Value="model.DonorId" Required="true" Class="mb-3">
+            @foreach (var donor in donors)
+            {
+                <MudSelectItem T="int" Value="@donor.Id">@donor.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudSelect T="int" Label="Tip donacije"
+                   Value="model.DonationTypeId"
+                   ValueChanged="OnTypeChanged"
+                   Required="true" Class="mb-3">
+            @foreach (var type in types)
+            {
+                <MudSelectItem T="int" Value="@type.Id">@type.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudSelect T="int" Label="Status" @bind-Value="model.DonationStatusId" Required="true" Class="mb-3">
+            @foreach (var status in statuses)
+            {
+                <MudSelectItem T="int" Value="@status.Id">@status.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudDatePicker Label="Datum donacije" @bind-Date="donationDate" Class="mb-3" />
+
+        @if (IsMoneyDonation())
+        {
+            <MudNumericField T="decimal?" Label="Iznos (€)" @bind-Value="model.Amount"
+                             Min="0" Format="N2" Class="mb-3" />
+        }
+        else
+        {
+            <MudTextField Label="Naziv stvari" @bind-Value="model.ItemName"
+                          Required="true" Immediate="true" Class="mb-3" />
+            <MudNumericField T="decimal?" Label="Količina" @bind-Value="model.Quantity"
+                             Min="0" Class="mb-3" />
+            <MudNumericField T="decimal?" Label="Procijenjena vrijednost (€)" @bind-Value="model.EstimatedValue"
+                             Min="0" Format="N2" Class="mb-3" />
+        }
+
+        <MudTextField Label="Napomena" @bind-Value="model.Notes" Lines="3" Immediate="true" Class="mb-4" />
+
+        <MudButton ButtonType="ButtonType.Button"
+                   OnClick="SaveDonation"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary">
+            Spremi
+        </MudButton>
+
+        <MudButton Href="/donations" Variant="Variant.Text" Class="ml-2">
+            Odustani
+        </MudButton>
+    </MudPaper>
+}
+
+@code {
+    private SaveDonationDto model = new();
+
+    private List<LookupDto> donors = new();
+    private List<LookupDto> types = new();
+    private List<LookupDto> statuses = new();
+
+    private DateTime? donationDate = DateTime.Today;
+
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            donors = await Http.GetFromJsonAsync<List<LookupDto>>("api/donors/lookup") ?? new();
+            types = await Http.GetFromJsonAsync<List<LookupDto>>("api/donationtypes") ?? new();
+            statuses = await Http.GetFromJsonAsync<List<LookupDto>>("api/donationstatuses") ?? new();
+
+            model.DonorId = donors.FirstOrDefault()?.Id ?? 0;
+            model.DonationTypeId = types.FirstOrDefault()?.Id ?? 0;
+            model.DonationStatusId = statuses.FirstOrDefault()?.Id ?? 0;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška kod učitavanja forme: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private bool IsMoneyDonation()
+    {
+        var type = types.FirstOrDefault(t => t.Id == model.DonationTypeId);
+        return type is not null && type.Name == "Novčana";
+    }
+
+    private void OnTypeChanged(int newTypeId)
+    {
+        model.DonationTypeId = newTypeId;
+
+        if (IsMoneyDonation())
+        {
+            model.ItemName = string.Empty;
+            model.Quantity = null;
+            model.EstimatedValue = null;
+        }
+        else
+        {
+            model.Amount = null;
+        }
+    }
+
+    private string? ValidateForm()
+    {
+        if (model.DonorId == 0)
+        {
+            return "Donator je obavezan.";
+        }
+
+        if (model.DonationTypeId == 0)
+        {
+            return "Tip donacije je obavezan.";
+        }
+
+        if (model.DonationStatusId == 0)
+        {
+            return "Status donacije je obavezan.";
+        }
+
+        if (!donationDate.HasValue)
+        {
+            return "Datum donacije je obavezan.";
+        }
+
+        if (IsMoneyDonation())
+        {
+            if (!model.Amount.HasValue || model.Amount.Value <= 0)
+            {
+                return "Novčana donacija mora imati iznos veći od nule.";
+            }
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(model.ItemName))
+            {
+                return "Materijalna donacija mora imati naziv stvari.";
+            }
+        }
+
+        return null;
+    }
+
+    private async Task SaveDonation()
+    {
+        try
+        {
+            errorMessage = null;
+
+            var validationError = ValidateForm();
+
+            if (validationError is not null)
+            {
+                errorMessage = validationError;
+                return;
+            }
+
+            model.DonationDate = donationDate!.Value;
+
+            var response = await Http.PostAsJsonAsync("api/donations", model);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var apiMessage = await response.Content.ReadAsStringAsync();
+
+                errorMessage = string.IsNullOrWhiteSpace(apiMessage)
+                    ? $"Donacija nije spremljena. Status: {(int)response.StatusCode}"
+                    : apiMessage;
+
+                return;
+            }
+
+            Navigation.NavigateTo("/donations");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška kod spremanja: {ex.Message}";
+        }
+    }
+}

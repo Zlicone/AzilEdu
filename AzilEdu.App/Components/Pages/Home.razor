@@ -1,24 +1,190 @@
 ﻿@page "/"
+@rendermode InteractiveServer
 
-<MudPaper Class="pa-6" Elevation="1">
-    <MudText Typo="Typo.h3" GutterBottom="true">Dobro došli u AzilEdu</MudText>
-    <MudText Typo="Typo.body1" Class="mb-4">
-        Ova aplikacija služi za evidenciju životinja, udomljenja, medicinskih zapisa i drugih procesa u azilu.
-    </MudText>
+@using AzilEdu.Shared.DTOs
+@using System.Net.Http.Json
 
-    <MudGrid>
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4" Elevation="1">
-                <MudText Typo="Typo.h6">Što ćemo graditi?</MudText>
-                <MudText>Animals, Species, Breeds, Housing Units, Adopters i Adoptions.</MudText>
+@inject HttpClient Http
+
+<MudText Typo="Typo.h4" GutterBottom="true">Dobro došli u AzilEdu</MudText>
+<MudText Typo="Typo.body1" Class="mb-4">
+    Brzi pregled stanja azila: životinje, volonteri, zadaci, donatori, djelatnici i donacije.
+</MudText>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+}
+
+@if (isLoading)
+{
+    <div class="d-flex justify-center my-6">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </div>
+}
+else if (summary is not null)
+{
+    <MudText Typo="Typo.h6" Class="mb-2">Azil</MudText>
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Ukupno životinja</MudText>
+                <MudText Typo="Typo.h4">@summary.AnimalsCount</MudText>
             </MudPaper>
         </MudItem>
 
-        <MudItem xs="12" md="6">
-            <MudPaper Class="pa-4" Elevation="1">
-                <MudText Typo="Typo.h6">Zašto odvojeni App i API?</MudText>
-                <MudText>Frontend prikazuje podatke korisniku, a API obrađuje zahtjeve i radi s bazom.</MudText>
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Dostupne za udomljenje</MudText>
+                <MudText Typo="Typo.h4">@summary.AvailableAnimalsCount</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Aktivni volonteri</MudText>
+                <MudText Typo="Typo.h4">@summary.ActiveVolunteersCount</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Otvoreni zadaci</MudText>
+                <MudText Typo="Typo.h4">@summary.OpenVolunteerTasksCount</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Zadaci s isteklim rokom</MudText>
+                <MudText Typo="Typo.h4" Color="@(summary.OverdueVolunteerTasksCount > 0 ? Color.Error : Color.Default)">
+                    @summary.OverdueVolunteerTasksCount
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Djelatnici</MudText>
+                <MudText Typo="Typo.h4">@summary.EmployeesCount</MudText>
             </MudPaper>
         </MudItem>
     </MudGrid>
-</MudPaper>
+
+    <MudText Typo="Typo.h6" Class="mb-2">Donacije</MudText>
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Aktivni donatori</MudText>
+                <MudText Typo="Typo.h4">@summary.ActiveDonorsCount</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Ukupno donacija</MudText>
+                <MudText Typo="Typo.h4">@summary.DonationsCount</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Donacije na čekanju</MudText>
+                <MudText Typo="Typo.h4">@summary.PendingDonationsCount</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Ukupan novčani iznos</MudText>
+                <MudText Typo="Typo.h4">@summary.MoneyDonationsTotal.ToString("N2") €</MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">Procijenjena vrijednost materijalnih donacija</MudText>
+                <MudText Typo="Typo.h4">@summary.EstimatedMaterialDonationsTotal.ToString("N2") €</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" GutterBottom="true">Zadnjih 5 donacija</MudText>
+
+        @if (recentDonations.Count == 0)
+        {
+            <MudText Typo="Typo.body2">Još nema evidentiranih donacija.</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Donator</th>
+                        <th>Tip</th>
+                        <th>Donacija</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var donation in recentDonations)
+                    {
+                        <tr>
+                            <td>@donation.DonationDate.ToString("dd.MM.yyyy.")</td>
+                            <td>@donation.DonorName</td>
+                            <td>@donation.DonationType</td>
+                            <td>
+                                @if (donation.Amount.HasValue)
+                                {
+                                    <strong>@donation.Amount.Value.ToString("N2") €</strong>
+                                }
+                                else
+                                {
+                                    @donation.ItemName
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="1">
+        <MudText Typo="Typo.h6" GutterBottom="true">Brzi pristup</MudText>
+        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Outlined" Href="/animals">Životinje</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="/volunteer-tasks">Zadaci</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="/volunteers">Volonteri</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="/donors">Donatori</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="/donations">Donacije</MudButton>
+            <MudButton Variant="Variant.Outlined" Href="/employees">Djelatnici</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    private DashboardSummaryDto? summary;
+    private List<RecentDonationDto> recentDonations = new();
+
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            summary = await Http.GetFromJsonAsync<DashboardSummaryDto>("api/dashboard/summary");
+            recentDonations = await Http.GetFromJsonAsync<List<RecentDonationDto>>("api/dashboard/recent-donations") ?? new();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška kod dohvaćanja sažetka: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

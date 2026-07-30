@@ -153,4 +153,23 @@ public class DonorsController : ControllerBase
 
         return NoContent();
     }
+
+    // DonorId će kasnije biti povezan s prijavljenim korisnikom preko AppUserId.
+    [HttpGet("lookup")]
+    public async Task<ActionResult<List<LookupDto>>> GetDonorsLookup()
+    {
+        var result = await _context.Donors
+            .OrderBy(d => d.OrganizationName)
+            .ThenBy(d => d.LastName)
+            .Select(d => new LookupDto
+            {
+                Id = d.Id,
+                Name = d.OrganizationName != string.Empty
+                    ? d.OrganizationName
+                    : d.LastName + " " + d.FirstName
+            })
+            .ToListAsync();
+
+        return Ok(result);
+    }
 }

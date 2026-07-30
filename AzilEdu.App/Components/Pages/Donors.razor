@@ -9,6 +9,15 @@
     Evidencija donatora azila.
 </MudText>
 
+<MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/donors/create" Class="mb-4">
+    Novi donator
+</MudButton>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+}
+
 <MudPaper Class="pa-4 mb-4">
     <MudGrid>
         <MudItem xs="12" md="4">
@@ -58,42 +67,59 @@
     </MudGrid>
 </MudPaper>
 
-<MudTable Items="@donors"
-          Filter="FilterDonors"
-          Hover="true"
-          Striped="true"
-          Bordered="true"
-          Dense="true">
-    <HeaderContent>
-        <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => GetDisplayName(x))">Donator</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.DonorTypeName)">Tip</MudTableSortLabel></MudTh>
-        <MudTh>Email</MudTh>
-        <MudTh>Telefon</MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.City)">Grad</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.CreatedAt)">Unesen</MudTableSortLabel></MudTh>
-        <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.Status)">Status</MudTableSortLabel></MudTh>
-    </HeaderContent>
+@if (isLoading)
+{
+    <div class="d-flex justify-center my-6">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </div>
+}
+else
+{
+    <MudTable Items="@donors"
+              Filter="FilterDonors"
+              Hover="true"
+              Striped="true"
+              Bordered="true"
+              Dense="true">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => GetDisplayName(x))">Donator</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.DonorTypeName)">Tip</MudTableSortLabel></MudTh>
+            <MudTh>Email</MudTh>
+            <MudTh>Telefon</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.City)">Grad</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.CreatedAt)">Unesen</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.Status)">Status</MudTableSortLabel></MudTh>
+            <MudTh>Akcije</MudTh>
+        </HeaderContent>
 
-    <RowTemplate>
-        <MudTd DataLabel="Donator">@GetDisplayName(context)</MudTd>
-        <MudTd DataLabel="Tip">@context.DonorTypeName</MudTd>
-        <MudTd DataLabel="Email">@context.Email</MudTd>
-        <MudTd DataLabel="Telefon">@context.Phone</MudTd>
-        <MudTd DataLabel="Grad">@context.City</MudTd>
-        <MudTd DataLabel="Unesen">@context.CreatedAt.ToShortDateString()</MudTd>
-        <MudTd DataLabel="Status">
-            <MudChip T="string" Color="@GetStatusColor(context.Status)">
-                @context.Status
-            </MudChip>
-        </MudTd>
-    </RowTemplate>
+        <RowTemplate>
+            <MudTd DataLabel="Donator">@GetDisplayName(context)</MudTd>
+            <MudTd DataLabel="Tip">@context.DonorTypeName</MudTd>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Telefon">@context.Phone</MudTd>
+            <MudTd DataLabel="Grad">@context.City</MudTd>
+            <MudTd DataLabel="Unesen">@context.CreatedAt.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Status">
+                <MudChip T="string" Color="@GetStatusColor(context.Status)">
+                    @context.Status
+                </MudChip>
+            </MudTd>
+            <MudTd DataLabel="Akcije">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Primary"
+                           Href="@($"/donors/edit/{context.Id}")">
+                    Uredi
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
 
-    <NoRecordsContent>
-        <MudText Typo="Typo.body1" Class="pa-4">
-            Nema rezultata za zadane kriterije pretrage i filtera.
-        </MudText>
-    </NoRecordsContent>
-</MudTable>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body1" Class="pa-4">
+                Nema rezultata za zadane kriterije pretrage i filtera.
+            </MudText>
+        </NoRecordsContent>
+    </MudTable>
+}
 
 @code {
     private List<DonorDto> donors = new();
@@ -104,11 +130,25 @@
     private string? selectedType;
     private string? selectedStatus;
 
+    private bool isLoading = true;
+    private string? errorMessage;
+
     protected override async Task OnInitializedAsync()
     {
-        donors = await Http.GetFromJsonAsync<List<DonorDto>>("api/donors") ?? new();
-        typeList = await Http.GetFromJsonAsync<List<LookupDto>>("api/donortypes") ?? new();
-        statusList = await Http.GetFromJsonAsync<List<LookupDto>>("api/donorstatuses") ?? new();
+        try
+        {
+            donors = await Http.GetFromJsonAsync<List<DonorDto>>("api/donors") ?? new();
+            typeList = await Http.GetFromJsonAsync<List<LookupDto>>("api/donortypes") ?? new();
+            statusList = await Http.GetFromJsonAsync<List<LookupDto>>("api/donorstatuses") ?? new();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška kod dohvaćanja donatora: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private string GetDisplayName(DonorDto donor)

@@ -315,6 +315,81 @@ using (var scope = app.Services.CreateScope())
 
         await db.SaveChangesAsync();
     }
+
+    if (!await db.Donations.AnyAsync())
+    {
+        var firstDonor = await db.Donors.OrderBy(d => d.Id).FirstOrDefaultAsync();
+
+        if (firstDonor is not null)
+        {
+            var donorIds = await db.Donors.OrderBy(d => d.Id).Select(d => d.Id).ToListAsync();
+
+            db.Donations.AddRange(
+                new Donation
+                {
+                    DonorId = donorIds[0],
+                    DonationTypeId = 1,
+                    DonationStatusId = 2,
+                    DonationDate = new DateTime(2026, 6, 15),
+                    Amount = 500m,
+                    ItemName = "",
+                    Quantity = null,
+                    EstimatedValue = null,
+                    Notes = "Mjesečna novčana donacija."
+                },
+                new Donation
+                {
+                    DonorId = donorIds.Count > 1 ? donorIds[1] : donorIds[0],
+                    DonationTypeId = 2,
+                    DonationStatusId = 3,
+                    DonationDate = new DateTime(2026, 5, 20),
+                    Amount = null,
+                    ItemName = "Suha hrana za pse",
+                    Quantity = 50m,
+                    EstimatedValue = 1200m,
+                    Notes = "Isporučeno u skladište."
+                },
+                new Donation
+                {
+                    DonorId = donorIds.Count > 2 ? donorIds[2] : donorIds[0],
+                    DonationTypeId = 3,
+                    DonationStatusId = 1,
+                    DonationDate = new DateTime(2026, 7, 2),
+                    Amount = null,
+                    ItemName = "Transportne kutije",
+                    Quantity = 6m,
+                    EstimatedValue = 900m,
+                    Notes = "Čeka preuzimanje."
+                },
+                new Donation
+                {
+                    DonorId = donorIds[0],
+                    DonationTypeId = 4,
+                    DonationStatusId = 2,
+                    DonationDate = new DateTime(2026, 7, 18),
+                    Amount = null,
+                    ItemName = "Antiparazitici",
+                    Quantity = 20m,
+                    EstimatedValue = 750m,
+                    Notes = "Rok trajanja 2027."
+                },
+                new Donation
+                {
+                    DonorId = donorIds.Count > 3 ? donorIds[3] : donorIds[0],
+                    DonationTypeId = 1,
+                    DonationStatusId = 1,
+                    DonationDate = new DateTime(2026, 7, 25),
+                    Amount = 1500m,
+                    ItemName = "",
+                    Quantity = null,
+                    EstimatedValue = null,
+                    Notes = "Uplata najavljena, čeka potvrdu."
+                }
+            );
+
+            await db.SaveChangesAsync();
+        }
+    }
 }
 
 // Configure the HTTP request pipeline.

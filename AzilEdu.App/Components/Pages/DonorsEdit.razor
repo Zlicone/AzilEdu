@@ -1,0 +1,203 @@
+﻿@page "/donors/edit/{Id:int}"
+@rendermode InteractiveServer
+
+@using AzilEdu.Shared.DTOs
+@using System.Net.Http.Json
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<MudText Typo="Typo.h4" Class="mb-4">Uredi donatora</MudText>
+
+@if (!string.IsNullOrWhiteSpace(errorMessage))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">
+        @errorMessage
+    </MudAlert>
+}
+
+@if (isLoading)
+{
+    <div class="d-flex justify-center my-6">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    </div>
+}
+else
+{
+    <MudPaper Class="pa-4">
+        <MudSelect T="int" Label="Tip donatora"
+                   Value="model.DonorTypeId"
+                   ValueChanged="OnTypeChanged"
+                   Required="true" Class="mb-3">
+            @foreach (var type in typeList)
+            {
+                <MudSelectItem T="int" Value="@type.Id">@type.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        @if (IsOrganization())
+        {
+            <MudTextField Label="Naziv organizacije" @bind-Value="model.OrganizationName"
+                          Required="true" Immediate="true" Class="mb-3" />
+        }
+        else
+        {
+            <MudTextField Label="Ime" @bind-Value="model.FirstName" Required="true" Immediate="true" Class="mb-3" />
+            <MudTextField Label="Prezime" @bind-Value="model.LastName" Required="true" Immediate="true" Class="mb-3" />
+        }
+
+        <MudTextField Label="Email" @bind-Value="model.Email" Immediate="true" Class="mb-3" />
+        <MudTextField Label="Telefon" @bind-Value="model.Phone" Immediate="true" Class="mb-3" />
+        <MudTextField Label="Adresa" @bind-Value="model.Address" Immediate="true" Class="mb-3" />
+        <MudTextField Label="Grad" @bind-Value="model.City" Immediate="true" Class="mb-3" />
+
+        <MudSelect T="int" Label="Status" @bind-Value="model.DonorStatusId" Required="true" Class="mb-3">
+            @foreach (var status in statusList)
+            {
+                <MudSelectItem T="int" Value="@status.Id">@status.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudTextField Label="Napomena" @bind-Value="model.Notes" Lines="3" Immediate="true" Class="mb-4" />
+
+        <MudButton ButtonType="ButtonType.Button"
+                   OnClick="UpdateDonor"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary">
+            Spremi promjene
+        </MudButton>
+
+        <MudButton Href="/donors" Variant="Variant.Text" Class="ml-2">
+            Odustani
+        </MudButton>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private SaveDonorDto model = new();
+
+    private List<LookupDto> typeList = new();
+    private List<LookupDto> statusList = new();
+
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            typeList = await Http.GetFromJsonAsync<List<LookupDto>>("api/donortypes") ?? new();
+            statusList = await Http.GetFromJsonAsync<List<LookupDto>>("api/donorstatuses") ?? new();
+
+            var donor = await Http.GetFromJsonAsync<DonorDto>($"api/donors/{Id}");
+
+            if (donor is not null)
+            {
+                model = new SaveDonorDto
+                {
+                    FirstName = donor.FirstName,
+                    LastName = donor.LastName,
+                    OrganizationName = donor.OrganizationName,
+                    Email = donor.Email,
+                    Phone = donor.Phone,
+                    Address = donor.Address,
+                    City = donor.City,
+                    Notes = donor.Notes,
+                    DonorTypeId = donor.DonorTypeId,
+                    DonorStatusId = donor.DonorStatusId
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška kod učitavanja donatora: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private bool IsOrganization()
+    {
+        var type = typeList.FirstOrDefault(t => t.Id == model.DonorTypeId);
+        return type is not null && type.Name != "Fizička osoba";
+    }
+
+    private void OnTypeChanged(int newTypeId)
+    {
+        model.DonorTypeId = newTypeId;
+
+        if (IsOrganization())
+        {
+            model.FirstName = string.Empty;
+            model.LastName = string.Empty;
+        }
+        else
+        {
+            model.OrganizationName = string.Empty;
+        }
+    }
+
+    private string? ValidateForm()
+    {
+        if (model.DonorTypeId == 0)
+        {
+            return "Tip donatora je obavezan.";
+        }
+
+        if (model.DonorStatusId == 0)
+        {
+            return "Status donatora je obavezan.";
+        }
+
+        if (IsOrganization())
+        {
+            if (string.IsNullOrWhiteSpace(model.OrganizationName))
+            {
+                return "Naziv organizacije je obavezan.";
+            }
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(model.FirstName) || string.IsNullOrWhiteSpace(model.LastName))
+            {
+                return "Ime i prezime su obavezni.";
+            }
+        }
+
+        return null;
+    }
+
+    private async Task UpdateDonor()
+    {
+        try
+        {
+            errorMessage = null;
+
+            var validationError = ValidateForm();
+
+            if (validationError is not null)
+            {
+                errorMessage = validationError;
+                return;
+            }
+
+            var response = await Http.PutAsJsonAsync($"api/donors/{Id}", model);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = $"Promjene nisu spremljene. Status: {(int)response.StatusCode}";
+                return;
+            }
+
+            Navigation.NavigateTo("/donors");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška kod spremanja: {ex.Message}";
+        }
+    }
+}

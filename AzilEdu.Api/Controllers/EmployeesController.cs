@@ -144,4 +144,20 @@ public class EmployeesController : ControllerBase
 
         return NoContent();
     }
+
+    [HttpGet("lookup")]
+    public async Task<ActionResult<List<LookupDto>>> GetEmployeesLookup()
+    {
+        var result = await _context.Employees
+            .OrderBy(e => e.LastName)
+            .ThenBy(e => e.FirstName)
+            .Select(e => new LookupDto
+            {
+                Id = e.Id,
+                Name = e.LastName + " " + e.FirstName
+            })
+            .ToListAsync();
+
+        return Ok(result);
+    }
 }
