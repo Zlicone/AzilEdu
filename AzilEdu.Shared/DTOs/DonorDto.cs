@@ -6,6 +6,7 @@ public class DonorDto
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string OrganizationName { get; set; } = string.Empty;
+    public string DisplayName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string Phone { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;
@@ -13,7 +14,7 @@ public class DonorDto
     public string Notes { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public int DonorTypeId { get; set; }
-    public string DonorTypeName { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
     public int DonorStatusId { get; set; }
     public string Status { get; set; } = string.Empty;
 }

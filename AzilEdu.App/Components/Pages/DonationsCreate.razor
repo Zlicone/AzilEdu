@@ -47,7 +47,8 @@ else
             }
         </MudSelect>
 
-        <MudDatePicker Label="Datum donacije" @bind-Date="donationDate" Class="mb-3" />
+        <MudDatePicker Label="Datum donacije" @bind-Date="donationDate"
+                       MaxDate="DateTime.Today" Class="mb-3" />
 
         @if (IsMoneyDonation())
         {
@@ -137,39 +138,39 @@ else
 
     private string? ValidateForm()
     {
-        if (model.DonorId == 0)
-        {
-            return "Donator je obavezan.";
-        }
+        if (model.DonorId <= 0)
+            return "Odaberi donatora.";
 
-        if (model.DonationTypeId == 0)
-        {
-            return "Tip donacije je obavezan.";
-        }
+        if (model.DonationTypeId <= 0)
+            return "Odaberi tip donacije.";
 
-        if (model.DonationStatusId == 0)
-        {
-            return "Status donacije je obavezan.";
-        }
+        if (model.DonationStatusId <= 0)
+            return "Odaberi status donacije.";
 
         if (!donationDate.HasValue)
-        {
-            return "Datum donacije je obavezan.";
-        }
+            return "Odaberi datum donacije.";
+
+        if (donationDate.Value.Date > DateTime.Today)
+            return "Datum donacije ne smije biti u budućnosti.";
+
+        if (model.Quantity.HasValue && model.Quantity.Value < 0)
+            return "Količina ne smije biti negativna.";
+
+        if (model.EstimatedValue.HasValue && model.EstimatedValue.Value < 0)
+            return "Procijenjena vrijednost ne smije biti negativna.";
 
         if (IsMoneyDonation())
         {
             if (!model.Amount.HasValue || model.Amount.Value <= 0)
-            {
-                return "Novčana donacija mora imati iznos veći od nule.";
-            }
+                return "Za novčanu donaciju upiši iznos veći od nule.";
         }
         else
         {
             if (string.IsNullOrWhiteSpace(model.ItemName))
-            {
-                return "Materijalna donacija mora imati naziv stvari.";
-            }
+                return "Upiši naziv materijalne donacije ili usluge.";
+
+            if (!model.Quantity.HasValue || model.Quantity.Value <= 0)
+                return "Upiši količinu veću od nule.";
         }
 
         return null;

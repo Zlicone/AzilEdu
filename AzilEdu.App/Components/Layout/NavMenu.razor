@@ -1,48 +1,109 @@
-﻿<MudNavMenu>
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
-        Home
-    </MudNavLink>
+﻿@using AzilEdu.App.Services
+@inject CurrentUserService CurrentUser
+@inject NavigationManager Navigation
+@implements IDisposable
 
-    <MudNavLink Href="/animals" Icon="@Icons.Material.Filled.Pets">
-        Animals
-    </MudNavLink>
+<MudNavMenu>
 
-    <MudNavLink Href="/species" Icon="@Icons.Material.Filled.Category">
-        Species
-    </MudNavLink>
+    @if (!CurrentUser.IsLoggedIn)
+    {
+        <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login">
+            Prijava
+        </MudNavLink>
+    }
+    else
+    {
+        <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+            Dashboard
+        </MudNavLink>
 
-    <MudNavLink Href="/breeds" Icon="@Icons.Material.Filled.Label">
-        Breeds
-    </MudNavLink>
+        @if (CurrentUser.HasAnyRole("Admin", "Employee"))
+        {
+            <MudNavLink Href="/animals" Icon="@Icons.Material.Filled.Pets">
+                Životinje
+            </MudNavLink>
 
-    <MudNavLink Href="/adopters" Icon="@Icons.Material.Filled.People">
-        Adopters
-    </MudNavLink>
+            <MudNavLink Href="/volunteer-tasks" Icon="@Icons.Material.Filled.Assignment">
+                Zadaci
+            </MudNavLink>
 
-    <MudNavLink Href="/adoptions" Icon="@Icons.Material.Filled.Favorite">
-        Adoptions
-    </MudNavLink>
+            <MudNavLink Href="/volunteers" Icon="@Icons.Material.Filled.VolunteerActivism">
+                Volonteri
+            </MudNavLink>
 
-    <MudNavLink Href="/housing-units" Icon="@Icons.Material.Filled.Home">
-        HousingUnits
-    </MudNavLink>
+            <MudNavLink Href="/donors" Icon="@Icons.Material.Filled.Favorite">
+                Donatori
+            </MudNavLink>
 
-    <MudNavLink Href="/volunteers" Icon="@Icons.Material.Filled.People">
-        Volunteers
-    </MudNavLink>
+            <MudNavLink Href="/donations" Icon="@Icons.Material.Filled.Payments">
+                Donacije
+            </MudNavLink>
 
-    <MudNavLink Href="/donors" Icon="@Icons.Material.Filled.Favorite">
-        Donors
-    </MudNavLink>
+            <MudNavLink Href="/housing-units" Icon="@Icons.Material.Filled.Home">
+                Smještaj
+            </MudNavLink>
+        }
 
-    <MudNavLink Href="/employees" Icon="@Icons.Material.Filled.People">
-        Employees
-    </MudNavLink>
+        @if (CurrentUser.HasRole("Admin"))
+        {
+            <MudNavLink Href="/employees" Icon="@Icons.Material.Filled.Badge">
+                Djelatnici
+            </MudNavLink>
 
-    <MudNavLink Href="/volunteer-tasks" Icon="@Icons.Material.Filled.Assignment">
-        Zadaci
-    </MudNavLink>
-    <MudNavLink Href="/donations" Icon="@Icons.Material.Filled.Payments">
-        Donacije
-    </MudNavLink>
+            <MudNavLink Href="/users" Icon="@Icons.Material.Filled.ManageAccounts">
+                Korisnici i uloge
+            </MudNavLink>
+        }
+
+        @if (CurrentUser.HasRole("Volunteer"))
+        {
+            <MudNavLink Href="/my-tasks" Icon="@Icons.Material.Filled.AssignmentInd">
+                Moji zadaci
+            </MudNavLink>
+        }
+
+        @if (CurrentUser.HasRole("Donor"))
+        {
+            <MudNavLink Href="/my-donations" Icon="@Icons.Material.Filled.CardGiftcard">
+                Moje donacije
+            </MudNavLink>
+        }
+
+        <MudDivider Class="my-2" />
+
+        <MudText Typo="Typo.body2" Class="px-4">
+            @CurrentUser.User?.DisplayName
+        </MudText>
+        <MudText Typo="Typo.caption" Class="px-4 mb-2">
+            @string.Join(", ", CurrentUser.User?.Roles ?? new List<string>())
+        </MudText>
+
+        <MudNavLink Icon="@Icons.Material.Filled.Logout" OnClick="HandleLogout">
+            Odjava
+        </MudNavLink>
+    }
+
 </MudNavMenu>
+
+@code {
+    protected override void OnInitialized()
+    {
+        CurrentUser.UserChanged += HandleUserChanged;
+    }
+
+    private void HandleUserChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleLogout()
+    {
+        await CurrentUser.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        CurrentUser.UserChanged -= HandleUserChanged;
+    }
+}

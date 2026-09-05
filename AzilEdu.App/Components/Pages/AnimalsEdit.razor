@@ -10,6 +10,22 @@
     Na ovoj stranici dohvaćamo postojeći zapis i spremamo promjene preko PUT zahtjeva.
 </MudText>
 
+@if (!string.IsNullOrWhiteSpace(aiError))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4">@aiError</MudAlert>
+}
+
+@if (aiCheck is not null)
+{
+    <MudAlert Severity="@(aiCheck.IsReady ? Severity.Success : Severity.Warning)" Class="mb-4">
+        <MudText>@aiCheck.SuggestedDescription</MudText>
+        @foreach (var warning in aiCheck.Warnings)
+        {
+            <MudText Typo="Typo.body2">• @warning</MudText>
+        }
+    </MudAlert>
+}
+
 @if (!string.IsNullOrWhiteSpace(errorMessage))
 {
     <MudAlert Severity="Severity.Error" Class="mb-4">
@@ -39,12 +55,36 @@
     <MudTextField @bind-Value="model.ImageUrl" Label="Putanja slike" Immediate="true" />
     <MudTextField @bind-Value="model.Description" Label="Opis" Lines="3" Immediate="true" />
 
-    <MudButton ButtonType="ButtonType.Button"
-               OnClick="UpdateAnimal"
-               Variant="Variant.Filled"
-               Color="Color.Primary">
-        Spremi promjene
-    </MudButton>
+    <MudStack Row="true" Spacing="2" Class="mb-3">
+        <MudButton ButtonType="ButtonType.Button"
+                   OnClick="GenerateDescription"
+                   Variant="Variant.Outlined"
+                   Color="Color.Secondary"
+                   Disabled="isGeneratingDescription">
+            @(isGeneratingDescription ? "Generiram..." : "AI prijedlog opisa")
+        </MudButton>
+
+        <MudButton ButtonType="ButtonType.Button"
+                   OnClick="CheckAnimalData"
+                   Variant="Variant.Outlined"
+                   Color="Color.Info"
+                   Disabled="isCheckingData">
+            @(isCheckingData ? "Provjeravam..." : "AI provjera podataka")
+        </MudButton>
+    </MudStack>
+
+    <MudStack Row="true" Spacing="2">
+        <MudButton ButtonType="ButtonType.Button"
+                   OnClick="UpdateAnimal"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary">
+            Spremi promjene
+        </MudButton>
+
+        <MudButton Href="/animals" Variant="Variant.Text">
+            Odustani
+        </MudButton>
+    </MudStack>
 </MudStack>
 
 @code {
@@ -54,6 +94,12 @@
     private List<LookupDto> statusList = new();
     private SaveAnimalDto model = new();
     private DateTime? arrivalDate;
+
+    private bool isGeneratingDescription;
+    private string? aiError;
+
+    private AnimalDataCheckDto? aiCheck;
+    private bool isCheckingData;
 
     protected override async Task OnInitializedAsync()
     {
@@ -119,6 +165,75 @@
         catch (Exception ex)
         {
             errorMessage = $"Greška kod spremanja: {ex.Message}";
+        }
+    }
+
+    private async Task GenerateDescription()
+    {
+        isGeneratingDescription = true;
+        aiError = null;
+
+        try
+        {
+            var input =
+                $"Ime: {model.Name}; Vrsta: {model.Species}; " +
+                $"Pasmina: {model.Breed}; Spol: {model.Gender}; " +
+                $"Starost: {model.Age}; Postojeći opis: {model.Description}.";
+
+            var response = await Http.PostAsJsonAsync("api/ai/text", new AiTextRequestDto
+            {
+                Purpose = "animal-adoption",
+                Input = input
+            });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                aiError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<AiTextResponseDto>();
+
+            if (!string.IsNullOrWhiteSpace(result?.Text))
+                model.Description = result.Text;
+        }
+        catch (Exception ex)
+        {
+            aiError = $"AI opis nije moguće generirati: {ex.Message}";
+        }
+        finally
+        {
+            isGeneratingDescription = false;
+        }
+    }
+
+    private async Task CheckAnimalData()
+    {
+        isCheckingData = true;
+        aiError = null;
+        aiCheck = null;
+
+        try
+        {
+            model.ArrivalDate = arrivalDate;
+
+            var response = await Http.PostAsJsonAsync("api/ai/animal-data-check", model);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                aiError = await response.Content.ReadAsStringAsync();
+                return;
+            }
+
+            aiCheck = await response.Content.ReadFromJsonAsync<AnimalDataCheckDto>();
+        }
+        catch (Exception ex)
+        {
+            aiError = $"AI provjera nije dostupna: {ex.Message}";
+        }
+        finally
+        {
+            isCheckingData = false;
         }
     }
 }

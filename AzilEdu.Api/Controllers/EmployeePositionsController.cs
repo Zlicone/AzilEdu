@@ -7,6 +7,8 @@ namespace AzilEdu.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.AdminOnly)]
 public class EmployeePositionsController : ControllerBase
 {
     private readonly AzilEduDbContext _context;

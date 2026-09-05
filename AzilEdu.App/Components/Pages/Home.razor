@@ -3,13 +3,74 @@
 
 @using AzilEdu.Shared.DTOs
 @using System.Net.Http.Json
+@using AzilEdu.App.Services
 
+@inject CurrentUserService CurrentUser
 @inject HttpClient Http
 
 <MudText Typo="Typo.h4" GutterBottom="true">Dobro došli u AzilEdu</MudText>
 <MudText Typo="Typo.body1" Class="mb-4">
     Brzi pregled stanja azila: životinje, volonteri, zadaci, donatori, djelatnici i donacije.
 </MudText>
+
+@if (CurrentUser.HasAnyRole("Admin", "Employee"))
+{
+    <MudPaper Class="pa-4 mb-6" Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <div>
+                <MudText Typo="Typo.h6">AI dnevni sažetak</MudText>
+                @if (providerStatus is not null)
+                {
+                    <MudText Typo="Typo.caption">
+                        Provider: @providerStatus.Provider · Model: @providerStatus.Model
+                    </MudText>
+                }
+            </div>
+            <MudButton OnClick="GenerateDailySummary"
+                       Variant="Variant.Outlined"
+                       Color="Color.Secondary"
+                       Disabled="isGeneratingAiSummary">
+                @(isGeneratingAiSummary ? "Generiram..." : "Generiraj sažetak")
+            </MudButton>
+        </MudStack>
+
+        @if (!string.IsNullOrWhiteSpace(aiSummary))
+        {
+            <MudAlert Severity="Severity.Info" Class="mt-3">@aiSummary</MudAlert>
+        }
+    </MudPaper>
+}
+
+@if (!CurrentUser.IsLoggedIn)
+{
+    <MudAlert Severity="Severity.Info" Class="mb-4">
+        Prijavi se da vidiš dashboard prema svojoj ulozi.
+    </MudAlert>
+}
+else if (CurrentUser.HasRole("Admin"))
+{
+    <MudText Typo="Typo.h5" Class="mb-4">
+        Administratorski pregled cijelog sustava
+    </MudText>
+}
+else if (CurrentUser.HasRole("Employee"))
+{
+    <MudText Typo="Typo.h5" Class="mb-4">
+        Operativni pregled azila
+    </MudText>
+}
+else if (CurrentUser.HasRole("Volunteer"))
+{
+    <MudText Typo="Typo.h5" Class="mb-4">
+        Dobrodošao/la. Pogledaj svoje volonterske zadatke.
+    </MudText>
+}
+else if (CurrentUser.HasRole("Donor"))
+{
+    <MudText Typo="Typo.h5" Class="mb-4">
+        Hvala na podršci azilu. Ovdje možeš vidjeti svoje donacije.
+    </MudText>
+}
 
 @if (!string.IsNullOrWhiteSpace(errorMessage))
 {
@@ -22,151 +83,209 @@
         <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
     </div>
 }
-else if (summary is not null)
+else
 {
-    <MudText Typo="Typo.h6" Class="mb-2">Azil</MudText>
-    <MudGrid Class="mb-4">
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Ukupno životinja</MudText>
-                <MudText Typo="Typo.h4">@summary.AnimalsCount</MudText>
-            </MudPaper>
-        </MudItem>
+    @if (CurrentUser.HasRole("Volunteer") && myOpenTasksCount.HasValue)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.AssignmentInd" Color="Color.Warning" Size="Size.Large" />
+                <div>
+                    <MudText Typo="Typo.subtitle2">Moji nezavršeni zadaci</MudText>
+                    <MudText Typo="Typo.h4">@myOpenTasksCount</MudText>
+                </div>
+                <MudSpacer />
+                <MudButton Href="/my-tasks" Variant="Variant.Outlined" Color="Color.Primary">
+                    Otvori
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
 
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Dostupne za udomljenje</MudText>
-                <MudText Typo="Typo.h4">@summary.AvailableAnimalsCount</MudText>
-            </MudPaper>
-        </MudItem>
+    @if (CurrentUser.HasRole("Donor") && myDonationsCount.HasValue)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.CardGiftcard" Color="Color.Success" Size="Size.Large" />
+                <div>
+                    <MudText Typo="Typo.subtitle2">Moje donacije</MudText>
+                    <MudText Typo="Typo.h4">@myDonationsCount</MudText>
+                </div>
+                <MudSpacer />
+                <MudButton Href="/my-donations" Variant="Variant.Outlined" Color="Color.Primary">
+                    Otvori
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
 
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Aktivni volonteri</MudText>
-                <MudText Typo="Typo.h4">@summary.ActiveVolunteersCount</MudText>
-            </MudPaper>
-        </MudItem>
+    @if (summary is not null)
+    {
+        <MudText Typo="Typo.h6" Class="mb-2">Azil</MudText>
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Ukupno životinja</MudText>
+                    <MudText Typo="Typo.h4">@summary.AnimalsCount</MudText>
+                </MudPaper>
+            </MudItem>
 
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Otvoreni zadaci</MudText>
-                <MudText Typo="Typo.h4">@summary.OpenVolunteerTasksCount</MudText>
-            </MudPaper>
-        </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Dostupne za udomljenje</MudText>
+                    <MudText Typo="Typo.h4">@summary.AvailableAnimalsCount</MudText>
+                </MudPaper>
+            </MudItem>
 
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Zadaci s isteklim rokom</MudText>
-                <MudText Typo="Typo.h4" Color="@(summary.OverdueVolunteerTasksCount > 0 ? Color.Error : Color.Default)">
-                    @summary.OverdueVolunteerTasksCount
-                </MudText>
-            </MudPaper>
-        </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Aktivni volonteri</MudText>
+                    <MudText Typo="Typo.h4">@summary.ActiveVolunteersCount</MudText>
+                </MudPaper>
+            </MudItem>
 
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Djelatnici</MudText>
-                <MudText Typo="Typo.h4">@summary.EmployeesCount</MudText>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Otvoreni zadaci</MudText>
+                    <MudText Typo="Typo.h4">@summary.OpenVolunteerTasksCount</MudText>
+                </MudPaper>
+            </MudItem>
 
-    <MudText Typo="Typo.h6" Class="mb-2">Donacije</MudText>
-    <MudGrid Class="mb-4">
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Aktivni donatori</MudText>
-                <MudText Typo="Typo.h4">@summary.ActiveDonorsCount</MudText>
-            </MudPaper>
-        </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Zadaci s isteklim rokom</MudText>
+                    <MudText Typo="Typo.h4" Color="@(summary.OverdueVolunteerTasksCount > 0 ? Color.Error : Color.Default)">
+                        @summary.OverdueVolunteerTasksCount
+                    </MudText>
+                </MudPaper>
+            </MudItem>
 
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Ukupno donacija</MudText>
-                <MudText Typo="Typo.h4">@summary.DonationsCount</MudText>
-            </MudPaper>
-        </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Djelatnici</MudText>
+                    <MudText Typo="Typo.h4">@summary.EmployeesCount</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
 
-        <MudItem xs="12" sm="6" md="4">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Donacije na čekanju</MudText>
-                <MudText Typo="Typo.h4">@summary.PendingDonationsCount</MudText>
-            </MudPaper>
-        </MudItem>
+        <MudText Typo="Typo.h6" Class="mb-2">Donacije</MudText>
+        <MudGrid Class="mb-4">
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Aktivni donatori</MudText>
+                    <MudText Typo="Typo.h4">@summary.ActiveDonorsCount</MudText>
+                </MudPaper>
+            </MudItem>
 
-        <MudItem xs="12" sm="6" md="6">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Ukupan novčani iznos</MudText>
-                <MudText Typo="Typo.h4">@summary.MoneyDonationsTotal.ToString("N2") €</MudText>
-            </MudPaper>
-        </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Ukupno donacija</MudText>
+                    <MudText Typo="Typo.h4">@summary.DonationsCount</MudText>
+                </MudPaper>
+            </MudItem>
 
-        <MudItem xs="12" sm="6" md="6">
-            <MudPaper Class="pa-4" Elevation="2">
-                <MudText Typo="Typo.subtitle2">Procijenjena vrijednost materijalnih donacija</MudText>
-                <MudText Typo="Typo.h4">@summary.EstimatedMaterialDonationsTotal.ToString("N2") €</MudText>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Donacije na čekanju</MudText>
+                    <MudText Typo="Typo.h4">@summary.PendingDonationsCount</MudText>
+                </MudPaper>
+            </MudItem>
 
-    <MudPaper Class="pa-4 mb-4" Elevation="1">
-        <MudText Typo="Typo.h6" GutterBottom="true">Zadnjih 5 donacija</MudText>
+            <MudItem xs="12" sm="6" md="6">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Ukupan novčani iznos</MudText>
+                    <MudText Typo="Typo.h4">@summary.MoneyDonationsTotal.ToString("N2") €</MudText>
+                </MudPaper>
+            </MudItem>
 
-        @if (recentDonations.Count == 0)
-        {
-            <MudText Typo="Typo.body2">Još nema evidentiranih donacija.</MudText>
-        }
-        else
-        {
-            <MudSimpleTable Dense="true" Hover="true">
-                <thead>
-                    <tr>
-                        <th>Datum</th>
-                        <th>Donator</th>
-                        <th>Tip</th>
-                        <th>Donacija</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var donation in recentDonations)
-                    {
+            <MudItem xs="12" sm="6" md="6">
+                <MudPaper Class="pa-4" Elevation="2">
+                    <MudText Typo="Typo.subtitle2">Procijenjena vrijednost materijalnih donacija</MudText>
+                    <MudText Typo="Typo.h4">@summary.EstimatedMaterialDonationsTotal.ToString("N2") €</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" GutterBottom="true">Zadnjih 5 donacija</MudText>
+
+            @if (recentDonations.Count == 0)
+            {
+                <MudText Typo="Typo.body2">Još nema evidentiranih donacija.</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
                         <tr>
-                            <td>@donation.DonationDate.ToString("dd.MM.yyyy.")</td>
-                            <td>@donation.DonorName</td>
-                            <td>@donation.DonationType</td>
-                            <td>
-                                @if (donation.Amount.HasValue)
-                                {
-                                    <strong>@donation.Amount.Value.ToString("N2") €</strong>
-                                }
-                                else
-                                {
-                                    @donation.ItemName
-                                }
-                            </td>
+                            <th>Datum</th>
+                            <th>Donator</th>
+                            <th>Tip</th>
+                            <th>Donacija</th>
                         </tr>
-                    }
-                </tbody>
-            </MudSimpleTable>
-        }
-    </MudPaper>
+                    </thead>
+                    <tbody>
+                        @foreach (var donation in recentDonations)
+                        {
+                            <tr>
+                                <td>@donation.DonationDate.ToString("dd.MM.yyyy.")</td>
+                                <td>@donation.DonorName</td>
+                                <td>@donation.DonationType</td>
+                                <td>
+                                    @if (donation.Amount.HasValue)
+                                    {
+                                        <strong>@donation.Amount.Value.ToString("N2") €</strong>
+                                    }
+                                    else
+                                    {
+                                        @donation.ItemName
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    }
 
     <MudPaper Class="pa-4" Elevation="1">
         <MudText Typo="Typo.h6" GutterBottom="true">Brzi pristup</MudText>
         <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
-            <MudButton Variant="Variant.Outlined" Href="/animals">Životinje</MudButton>
-            <MudButton Variant="Variant.Outlined" Href="/volunteer-tasks">Zadaci</MudButton>
-            <MudButton Variant="Variant.Outlined" Href="/volunteers">Volonteri</MudButton>
-            <MudButton Variant="Variant.Outlined" Href="/donors">Donatori</MudButton>
-            <MudButton Variant="Variant.Outlined" Href="/donations">Donacije</MudButton>
-            <MudButton Variant="Variant.Outlined" Href="/employees">Djelatnici</MudButton>
+            @if (CurrentUser.HasAnyRole("Admin", "Employee"))
+            {
+                <MudButton Variant="Variant.Outlined" Href="/animals">Životinje</MudButton>
+                <MudButton Variant="Variant.Outlined" Href="/volunteer-tasks">Zadaci</MudButton>
+                <MudButton Variant="Variant.Outlined" Href="/volunteers">Volonteri</MudButton>
+                <MudButton Variant="Variant.Outlined" Href="/donors">Donatori</MudButton>
+                <MudButton Variant="Variant.Outlined" Href="/donations">Donacije</MudButton>
+            }
+            @if (CurrentUser.HasRole("Admin"))
+            {
+                <MudButton Variant="Variant.Outlined" Href="/employees">Djelatnici</MudButton>
+            }
+            @if (CurrentUser.HasRole("Volunteer"))
+            {
+                <MudButton Variant="Variant.Outlined" Href="/my-tasks">Moji zadaci</MudButton>
+            }
+            @if (CurrentUser.HasRole("Donor"))
+            {
+                <MudButton Variant="Variant.Outlined" Href="/my-donations">Moje donacije</MudButton>
+            }
         </MudStack>
     </MudPaper>
 }
 
 @code {
+    private string? aiSummary;
+    private bool isGeneratingAiSummary;
+    private AiProviderStatusDto? providerStatus;
+
     private DashboardSummaryDto? summary;
     private List<RecentDonationDto> recentDonations = new();
+
+    private int? myOpenTasksCount;
+    private int? myDonationsCount;
 
     private bool isLoading = true;
     private string? errorMessage;
@@ -175,8 +294,14 @@ else if (summary is not null)
     {
         try
         {
-            summary = await Http.GetFromJsonAsync<DashboardSummaryDto>("api/dashboard/summary");
-            recentDonations = await Http.GetFromJsonAsync<List<RecentDonationDto>>("api/dashboard/recent-donations") ?? new();
+            if (CurrentUser.HasAnyRole("Admin", "Employee"))
+            {
+                summary = await Http.GetFromJsonAsync<DashboardSummaryDto>("api/dashboard/summary");
+                recentDonations = await Http.GetFromJsonAsync<List<RecentDonationDto>>("api/dashboard/recent-donations") ?? new();
+                providerStatus = await Http.GetFromJsonAsync<AiProviderStatusDto>("api/ai/status");
+            }
+
+            await LoadPersonalData();
         }
         catch (Exception ex)
         {
@@ -185,6 +310,60 @@ else if (summary is not null)
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task LoadPersonalData()
+    {
+        if (CurrentUser.HasRole("Volunteer"))
+        {
+            try
+            {
+                var myTasks = await Http.GetFromJsonAsync<List<VolunteerTaskDto>>(
+                    "api/volunteertasks/mine") ?? new();
+
+                myOpenTasksCount = myTasks.Count(task =>
+                    task.Status != "Završeno" && task.Status != "Otkazano");
+            }
+            catch
+            {
+                myOpenTasksCount = null;
+            }
+        }
+
+        if (CurrentUser.HasRole("Donor"))
+        {
+            try
+            {
+                var myDonations = await Http.GetFromJsonAsync<List<DonationDto>>(
+                    "api/donations/mine") ?? new();
+
+                myDonationsCount = myDonations.Count;
+            }
+            catch
+            {
+                myDonationsCount = null;
+            }
+        }
+    }
+
+    private async Task GenerateDailySummary()
+    {
+        isGeneratingAiSummary = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await Http.GetFromJsonAsync<AiTextResponseDto>("api/ai/daily-summary");
+            aiSummary = result?.Text;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"AI sažetak nije dostupan: {ex.Message}";
+        }
+        finally
+        {
+            isGeneratingAiSummary = false;
         }
     }
 }

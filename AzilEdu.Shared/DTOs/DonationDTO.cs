@@ -14,8 +14,8 @@ public class DonationDto
     public string DonorName { get; set; } = string.Empty;
 
     public int DonationTypeId { get; set; }
-    public string DonationTypeName { get; set; } = string.Empty;
+    public string DonationType { get; set; } = string.Empty;
 
     public int DonationStatusId { get; set; }
-    public string Status { get; set; } = string.Empty;
+    public string DonationStatus { get; set; } = string.Empty;
 }

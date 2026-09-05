@@ -8,6 +8,8 @@ namespace AzilEdu.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
 public class DonorsController : ControllerBase
 {
     private readonly AzilEduDbContext _context;
@@ -25,133 +27,9 @@ public class DonorsController : ControllerBase
             .Include(d => d.DonorStatus)
             .OrderBy(d => d.LastName)
             .ThenBy(d => d.OrganizationName)
-            .Select(d => new DonorDto
-            {
-                Id = d.Id,
-                FirstName = d.FirstName,
-                LastName = d.LastName,
-                OrganizationName = d.OrganizationName,
-                Email = d.Email,
-                Phone = d.Phone,
-                Address = d.Address,
-                City = d.City,
-                Notes = d.Notes,
-                CreatedAt = d.CreatedAt,
-                DonorTypeId = d.DonorTypeId,
-                DonorTypeName = d.DonorType != null ? d.DonorType.Name : string.Empty,
-                DonorStatusId = d.DonorStatusId,
-                Status = d.DonorStatus != null ? d.DonorStatus.Name : string.Empty
-            })
             .ToListAsync();
 
-        return Ok(donors);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<ActionResult<DonorDto>> GetDonorById(int id)
-    {
-        var donor = await _context.Donors
-            .Include(d => d.DonorType)
-            .Include(d => d.DonorStatus)
-            .FirstOrDefaultAsync(d => d.Id == id);
-
-        if (donor is null)
-            return NotFound();
-
-        var dto = new DonorDto
-        {
-            Id = donor.Id,
-            FirstName = donor.FirstName,
-            LastName = donor.LastName,
-            OrganizationName = donor.OrganizationName,
-            Email = donor.Email,
-            Phone = donor.Phone,
-            Address = donor.Address,
-            City = donor.City,
-            Notes = donor.Notes,
-            CreatedAt = donor.CreatedAt,
-            DonorTypeId = donor.DonorTypeId,
-            DonorTypeName = donor.DonorType != null ? donor.DonorType.Name : string.Empty,
-            DonorStatusId = donor.DonorStatusId,
-            Status = donor.DonorStatus != null ? donor.DonorStatus.Name : string.Empty
-        };
-
-        return Ok(dto);
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<DonorDto>> CreateDonor(SaveDonorDto dto)
-    {
-        var donor = new Donor
-        {
-            FirstName = dto.FirstName,
-            LastName = dto.LastName,
-            OrganizationName = dto.OrganizationName,
-            Email = dto.Email,
-            Phone = dto.Phone,
-            Address = dto.Address,
-            City = dto.City,
-            Notes = dto.Notes,
-            CreatedAt = DateTime.Now,
-            DonorTypeId = dto.DonorTypeId,
-            DonorStatusId = dto.DonorStatusId
-        };
-
-        _context.Donors.Add(donor);
-        await _context.SaveChangesAsync();
-
-        return CreatedAtAction(nameof(GetDonorById), new { id = donor.Id }, new DonorDto
-        {
-            Id = donor.Id,
-            FirstName = donor.FirstName,
-            LastName = donor.LastName,
-            OrganizationName = donor.OrganizationName,
-            Email = donor.Email,
-            Phone = donor.Phone,
-            Address = donor.Address,
-            City = donor.City,
-            Notes = donor.Notes,
-            CreatedAt = donor.CreatedAt,
-            DonorTypeId = donor.DonorTypeId,
-            DonorStatusId = donor.DonorStatusId
-        });
-    }
-
-    [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateDonor(int id, SaveDonorDto dto)
-    {
-        var donor = await _context.Donors.FindAsync(id);
-
-        if (donor is null)
-            return NotFound();
-
-        donor.FirstName = dto.FirstName;
-        donor.LastName = dto.LastName;
-        donor.OrganizationName = dto.OrganizationName;
-        donor.Email = dto.Email;
-        donor.Phone = dto.Phone;
-        donor.Address = dto.Address;
-        donor.City = dto.City;
-        donor.Notes = dto.Notes;
-        donor.DonorTypeId = dto.DonorTypeId;
-        donor.DonorStatusId = dto.DonorStatusId;
-
-        await _context.SaveChangesAsync();
-        return NoContent();
-    }
-
-    [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteDonor(int id)
-    {
-        var donor = await _context.Donors.FindAsync(id);
-
-        if (donor is null)
-            return NotFound();
-
-        _context.Donors.Remove(donor);
-        await _context.SaveChangesAsync();
-
-        return NoContent();
+        return Ok(donors.Select(ToDto).ToList());
     }
 
     // DonorId će kasnije biti povezan s prijavljenim korisnikom preko AppUserId.
@@ -171,5 +49,110 @@ public class DonorsController : ControllerBase
             .ToListAsync();
 
         return Ok(result);
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<DonorDto>> GetDonorById(int id)
+    {
+        var donor = await _context.Donors
+            .Include(d => d.DonorType)
+            .Include(d => d.DonorStatus)
+            .FirstOrDefaultAsync(d => d.Id == id);
+
+        if (donor is null)
+            return NotFound();
+
+        return Ok(ToDto(donor));
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<DonorDto>> CreateDonor(SaveDonorDto request)
+    {
+        if (request.DonorTypeId <= 0 || request.DonorStatusId <= 0)
+            return BadRequest("Tip i status donatora su obavezni.");
+
+        var donor = new Donor
+        {
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            OrganizationName = request.OrganizationName,
+            Email = request.Email,
+            Phone = request.Phone,
+            Address = request.Address,
+            City = request.City,
+            Notes = request.Notes,
+            CreatedAt = DateTime.Now,
+            DonorTypeId = request.DonorTypeId,
+            DonorStatusId = request.DonorStatusId
+        };
+
+        _context.Donors.Add(donor);
+        await _context.SaveChangesAsync();
+
+        await _context.Entry(donor).Reference(item => item.DonorType).LoadAsync();
+        await _context.Entry(donor).Reference(item => item.DonorStatus).LoadAsync();
+
+        return CreatedAtAction(nameof(GetDonorById), new { id = donor.Id }, ToDto(donor));
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateDonor(int id, SaveDonorDto request)
+    {
+        var donor = await _context.Donors.FindAsync(id);
+
+        if (donor is null)
+            return NotFound();
+
+        donor.FirstName = request.FirstName;
+        donor.LastName = request.LastName;
+        donor.OrganizationName = request.OrganizationName;
+        donor.Email = request.Email;
+        donor.Phone = request.Phone;
+        donor.Address = request.Address;
+        donor.City = request.City;
+        donor.Notes = request.Notes;
+        donor.DonorTypeId = request.DonorTypeId;
+        donor.DonorStatusId = request.DonorStatusId;
+
+        await _context.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteDonor(int id)
+    {
+        var donor = await _context.Donors.FindAsync(id);
+
+        if (donor is null)
+            return NotFound();
+
+        _context.Donors.Remove(donor);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    private static DonorDto ToDto(Donor donor)
+    {
+        return new DonorDto
+        {
+            Id = donor.Id,
+            FirstName = donor.FirstName,
+            LastName = donor.LastName,
+            OrganizationName = donor.OrganizationName,
+            DisplayName = !string.IsNullOrWhiteSpace(donor.OrganizationName)
+                ? donor.OrganizationName
+                : $"{donor.FirstName} {donor.LastName}".Trim(),
+            Email = donor.Email,
+            Phone = donor.Phone,
+            Address = donor.Address,
+            City = donor.City,
+            Notes = donor.Notes,
+            CreatedAt = donor.CreatedAt,
+            DonorTypeId = donor.DonorTypeId,
+            Type = donor.DonorType?.Name ?? string.Empty,
+            DonorStatusId = donor.DonorStatusId,
+            Status = donor.DonorStatus?.Name ?? string.Empty
+        };
     }
 }

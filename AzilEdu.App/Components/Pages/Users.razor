@@ -1,0 +1,315 @@
+﻿@page "/users"
+@rendermode InteractiveServer
+
+@using AzilEdu.App.Services
+@using AzilEdu.Shared.DTOs
+@using System.Net.Http.Json
+
+@inject HttpClient Http
+@inject CurrentUserService CurrentUser
+
+<PageTitle>Korisnici i uloge</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Korisnici i uloge</MudText>
+<MudText Typo="Typo.body1" Class="mb-4">
+    Administracija korisničkih računa, uloga i povezanih poslovnih profila.
+</MudText>
+
+@if (!CurrentUser.HasRole("Admin"))
+{
+    <MudAlert Severity="Severity.Warning">
+        Ova stranica dostupna je samo administratoru.
+    </MudAlert>
+}
+else
+{
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-4">@successMessage</MudAlert>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+    }
+
+    @if (!isEditing)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="StartCreate" Class="mb-4">
+            Novi korisnik
+        </MudButton>
+    }
+
+    @if (isEditing)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="3">
+            <MudText Typo="Typo.h6" GutterBottom="true">
+                @(editingId is null ? "Novi korisnik" : "Uređivanje korisnika")
+            </MudText>
+
+            <MudTextField Label="Email" @bind-Value="model.Email"
+                          Required="true" Immediate="true" Class="mb-3" />
+
+            <MudTextField Label="Prikazno ime" @bind-Value="model.DisplayName"
+                          Required="true" Immediate="true" Class="mb-3" />
+
+            <MudTextField Label="@(editingId is null ? "Lozinka" : "Nova lozinka (ostavi prazno ako ne mijenjaš)")"
+                          @bind-Value="model.Password"
+                          InputType="InputType.Password"
+                          Immediate="true" Class="mb-3" />
+
+            <MudCheckBox T="bool" @bind-Value="model.IsActive" Label="Račun je aktivan" Class="mb-3" />
+
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Uloge</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Class="mb-3">
+                @foreach (var role in roles)
+                {
+                    <MudCheckBox T="bool"
+                                 Value="@model.RoleIds.Contains(role.Id)"
+                                 ValueChanged="@(checkedValue => ToggleRole(role.Id, checkedValue))"
+                                 Label="@role.DisplayName" />
+                }
+            </MudStack>
+
+            <MudSelect T="int?" Label="Povezani volonter" @bind-Value="model.VolunteerId"
+                       Clearable="true" Class="mb-3">
+                @foreach (var volunteer in volunteers)
+                {
+                    <MudSelectItem T="int?" Value="@((int?)volunteer.Id)">@volunteer.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSelect T="int?" Label="Povezani donator" @bind-Value="model.DonorId"
+                       Clearable="true" Class="mb-3">
+                @foreach (var donor in donors)
+                {
+                    <MudSelectItem T="int?" Value="@((int?)donor.Id)">@donor.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSelect T="int?" Label="Povezani djelatnik" @bind-Value="model.EmployeeId"
+                       Clearable="true" Class="mb-4">
+                @foreach (var employee in employees)
+                {
+                    <MudSelectItem T="int?" Value="@((int?)employee.Id)">@employee.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled"
+                           Color="Color.Primary" OnClick="SaveUser" Disabled="isSaving">
+                    @(isSaving ? "Spremam..." : "Spremi")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="CancelEdit">
+                    Odustani
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-center my-6">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        </div>
+    }
+    else
+    {
+        <MudTable Items="@users" Hover="true" Striped="true" Dense="true">
+            <HeaderContent>
+                <MudTh>Ime</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Uloge</MudTh>
+                <MudTh>Povezani profil</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Akcije</MudTh>
+            </HeaderContent>
+
+            <RowTemplate>
+                <MudTd DataLabel="Ime">@context.DisplayName</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Uloge">
+                    @foreach (var role in context.Roles)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary">@role</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Povezani profil">
+                    @if (!string.IsNullOrWhiteSpace(context.VolunteerName))
+                    {
+                        <MudText Typo="Typo.caption">Volonter: @context.VolunteerName</MudText>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(context.DonorName))
+                    {
+                        <MudText Typo="Typo.caption">Donator: @context.DonorName</MudText>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(context.EmployeeName))
+                    {
+                        <MudText Typo="Typo.caption">Djelatnik: @context.EmployeeName</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small"
+                             Color="@(context.IsActive ? Color.Success : Color.Default)">
+                        @(context.IsActive ? "Aktivan" : "Neaktivan")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Akcije">
+                    <MudButton Variant="Variant.Text" Color="Color.Primary"
+                               OnClick="@(() => StartEdit(context))">
+                        Uredi
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+
+            <NoRecordsContent>
+                <MudText Typo="Typo.body1" Class="pa-4">Nema korisničkih računa.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+    }
+}
+
+@code {
+    private List<UserAdminDto> users = new();
+    private List<RoleDto> roles = new();
+    private List<LookupDto> volunteers = new();
+    private List<LookupDto> donors = new();
+    private List<LookupDto> employees = new();
+
+    private SaveUserAdminDto model = new();
+    private int? editingId;
+    private bool isEditing;
+
+    private bool isLoading = true;
+    private bool isSaving;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CurrentUser.HasRole("Admin"))
+        {
+            isLoading = false;
+            return;
+        }
+
+        try
+        {
+            roles = await Http.GetFromJsonAsync<List<RoleDto>>("api/users/roles") ?? new();
+            volunteers = await Http.GetFromJsonAsync<List<LookupDto>>("api/volunteers/lookup") ?? new();
+            donors = await Http.GetFromJsonAsync<List<LookupDto>>("api/donors/lookup") ?? new();
+            employees = await Http.GetFromJsonAsync<List<LookupDto>>("api/employees/lookup") ?? new();
+
+            await LoadUsers();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška kod učitavanja: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadUsers()
+    {
+        users = await Http.GetFromJsonAsync<List<UserAdminDto>>("api/users") ?? new();
+    }
+
+    private void ToggleRole(int roleId, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!model.RoleIds.Contains(roleId))
+                model.RoleIds.Add(roleId);
+        }
+        else
+        {
+            model.RoleIds.Remove(roleId);
+        }
+    }
+
+    private void StartCreate()
+    {
+        editingId = null;
+        model = new SaveUserAdminDto { IsActive = true };
+        isEditing = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void StartEdit(UserAdminDto user)
+    {
+        editingId = user.Id;
+        model = new SaveUserAdminDto
+        {
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            Password = null,
+            IsActive = user.IsActive,
+            RoleIds = user.RoleIds.ToList(),
+            VolunteerId = user.VolunteerId,
+            DonorId = user.DonorId,
+            EmployeeId = user.EmployeeId
+        };
+        isEditing = true;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private void CancelEdit()
+    {
+        isEditing = false;
+        editingId = null;
+        model = new SaveUserAdminDto();
+        errorMessage = null;
+    }
+
+    private async Task SaveUser()
+    {
+        isSaving = true;
+        errorMessage = null;
+
+        try
+        {
+            HttpResponseMessage response;
+
+            if (editingId is null)
+                response = await Http.PostAsJsonAsync("api/users", model);
+            else
+                response = await Http.PutAsJsonAsync($"api/users/{editingId}", model);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var apiMessage = await response.Content.ReadAsStringAsync();
+
+                errorMessage = string.IsNullOrWhiteSpace(apiMessage)
+                    ? $"Spremanje nije uspjelo. Status: {(int)response.StatusCode}"
+                    : apiMessage;
+
+                return;
+            }
+
+            successMessage = editingId is null
+                ? "Korisnički račun je stvoren."
+                : "Korisnički račun je ažuriran.";
+
+            isEditing = false;
+            editingId = null;
+            model = new SaveUserAdminDto();
+
+            await LoadUsers();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Greška kod spremanja: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

@@ -21,23 +21,30 @@ public class AnimalsController : ControllerBase
     public async Task<ActionResult<List<AnimalDto>>> GetAnimals()
     {
         var animals = await _context.Animals
-            .Include(a => a.AnimalStatus)
-            .OrderBy(a => a.Name)
-            .Select(a => new AnimalDto
+            .Include(animal => animal.AnimalStatus)
+            .OrderBy(animal => animal.Name)
+            .Select(animal => new AnimalDto
             {
-                Id = a.Id,
-                Name = a.Name,
-                Species = a.Species,
-                Breed = a.Breed,
-                Gender = a.Gender,
-                Age = a.Age,
-                ArrivalDate = a.ArrivalDate,
-                AnimalStatusId = a.AnimalStatusId,
-                Status = a.AnimalStatus != null ? a.AnimalStatus.Name : string.Empty,
-                ImageUrl = a.ImageUrl,
-                Description = a.Description
+                Id = animal.Id,
+                Name = animal.Name,
+                Species = animal.Species,
+                Breed = animal.Breed,
+                Gender = animal.Gender,
+                Age = animal.Age,
+                ArrivalDate = animal.ArrivalDate,
+                AnimalStatusId = animal.AnimalStatusId,
+                Status = animal.AnimalStatus != null ? animal.AnimalStatus.Name : string.Empty,
+                ImageUrl = animal.Media
+                    .Where(media => media.IsCover && media.MediaType == AnimalMediaType.Image)
+                    .OrderBy(media => media.SortOrder)
+                    .Select(media => "/uploads/animals/" + media.StoredFileName)
+                    .FirstOrDefault() ?? animal.ImageUrl,
+                Description = animal.Description
             })
             .ToListAsync();
+
+        foreach (var animal in animals)
+            animal.ImageUrl = ToPublicImageUrl(animal.ImageUrl);
 
         return Ok(animals);
     }
@@ -46,13 +53,14 @@ public class AnimalsController : ControllerBase
     public async Task<ActionResult<AnimalDto>> GetAnimalById(int id)
     {
         var animal = await _context.Animals
-            .Include(a => a.AnimalStatus)
-            .FirstOrDefaultAsync(a => a.Id == id);
+            .Include(item => item.AnimalStatus)
+            .Include(item => item.Media)
+            .FirstOrDefaultAsync(item => item.Id == id);
 
         if (animal is null)
             return NotFound();
 
-        var dto = new AnimalDto
+        return Ok(new AnimalDto
         {
             Id = animal.Id,
             Name = animal.Name,
@@ -63,14 +71,14 @@ public class AnimalsController : ControllerBase
             ArrivalDate = animal.ArrivalDate,
             AnimalStatusId = animal.AnimalStatusId,
             Status = animal.AnimalStatus != null ? animal.AnimalStatus.Name : string.Empty,
-            ImageUrl = animal.ImageUrl,
+            ImageUrl = ToPublicImageUrl(GetCoverImagePath(animal)),
             Description = animal.Description
-        };
-
-        return Ok(dto);
+        });
     }
 
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
     public async Task<ActionResult<AnimalDto>> CreateAnimal(SaveAnimalDto dto)
     {
         var animal = new Animal
@@ -112,6 +120,8 @@ public class AnimalsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
     public async Task<IActionResult> UpdateAnimal(int id, SaveAnimalDto dto)
     {
         var animal = await _context.Animals.FindAsync(id);
@@ -134,6 +144,8 @@ public class AnimalsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
     public async Task<IActionResult> DeleteAnimal(int id)
     {
         var animal = await _context.Animals.FindAsync(id);
@@ -160,5 +172,25 @@ public class AnimalsController : ControllerBase
             .ToListAsync();
 
         return Ok(result);
+    }
+
+    private static string GetCoverImagePath(Animal animal)
+    {
+        var cover = animal.Media
+            .Where(media => media.IsCover && media.MediaType == AnimalMediaType.Image)
+            .OrderBy(media => media.SortOrder)
+            .FirstOrDefault();
+
+        return cover is null
+            ? animal.ImageUrl
+            : $"/uploads/animals/{cover.StoredFileName}";
+    }
+
+    private string ToPublicImageUrl(string imageUrl)
+    {
+        if (!imageUrl.StartsWith("/uploads/", StringComparison.OrdinalIgnoreCase))
+            return imageUrl;
+
+        return $"{Request.Scheme}://{Request.Host}{imageUrl}";
     }
 }

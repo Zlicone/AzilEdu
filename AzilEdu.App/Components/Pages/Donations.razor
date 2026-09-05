@@ -62,11 +62,11 @@
         </MudItem>
 
         <MudItem xs="12" md="4">
-            <MudDatePicker Label="Datum od" @bind-Date="dateFrom" Clearable="true" />
+            <MudDatePicker Label="Datum od" @bind-Date="dateFrom" MaxDate="DateTime.Today" Clearable="true" />
         </MudItem>
 
         <MudItem xs="12" md="4">
-            <MudDatePicker Label="Datum do" @bind-Date="dateTo" Clearable="true" />
+            <MudDatePicker Label="Datum do" @bind-Date="dateTo" MaxDate="DateTime.Today" Clearable="true" />
         </MudItem>
     </MudGrid>
 
@@ -103,7 +103,7 @@ else
         <RowTemplate>
             <MudTd DataLabel="Datum">@context.DonationDate.ToString("dd.MM.yyyy.")</MudTd>
             <MudTd DataLabel="Donator">@context.DonorName</MudTd>
-            <MudTd DataLabel="Tip">@context.DonationTypeName</MudTd>
+            <MudTd DataLabel="Tip">@context.DonationType</MudTd>
             <MudTd DataLabel="Donacija">
                 @if (IsMoneyDonation(context))
                 {
@@ -131,8 +131,8 @@ else
                 }
             </MudTd>
             <MudTd DataLabel="Status">
-                <MudChip T="string" Color="@GetStatusColor(context.Status)">
-                    @context.Status
+                <MudChip T="string" Color="@GetStatusColor(context.DonationStatus)">
+                    @context.DonationStatus
                 </MudChip>
             </MudTd>
             <MudTd DataLabel="Akcije">
@@ -162,7 +162,9 @@ else
     <MudPaper Class="pa-4 mt-4" Elevation="3">
         <MudText Typo="Typo.h6" GutterBottom="true">Potvrda brisanja</MudText>
         <MudText Class="mb-3">
-            Obrisati donaciju donatora "@donationToDelete.DonorName" od @donationToDelete.DonationDate.ToString("dd.MM.yyyy.")?
+            Obrisati donaciju donatora "@donationToDelete.DonorName"
+            od @donationToDelete.DonationDate.ToString("dd.MM.yyyy.")?
+            Ova radnja se ne može poništiti.
         </MudText>
         <MudStack Row="true" Spacing="2">
             <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="ConfirmDelete">
@@ -285,20 +287,23 @@ else
             return;
 
         var id = donationToDelete.Id;
+        var donorName = donationToDelete.DonorName;
         donationToDelete = null;
+
+        errorMessage = null;
 
         try
         {
             var response = await Http.DeleteAsync($"api/donations/{id}");
 
-            if (response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
             {
-                donations = donations.Where(d => d.Id != id).ToList();
-                successMessage = "Donacija je obrisana.";
+                errorMessage = "Donaciju nije moguće obrisati.";
                 return;
             }
 
-            errorMessage = "Donacija nije obrisana.";
+            successMessage = $"Donacija donatora \"{donorName}\" je obrisana.";
+            await LoadDonations();
         }
         catch (Exception ex)
         {
@@ -308,7 +313,7 @@ else
 
     private static bool IsMoneyDonation(DonationDto donation)
     {
-        return donation.DonationTypeName == "Novčana";
+        return donation.DonationType == "Novčana";
     }
 
     private bool DonationMatchesSearch(DonationDto donation)

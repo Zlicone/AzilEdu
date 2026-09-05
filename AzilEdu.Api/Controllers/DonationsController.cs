@@ -19,6 +19,8 @@ public class DonationsController : ControllerBase
 
     // Kasnije će donator vidjeti samo svoje donacije.
     [HttpGet]
+    [Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
     public async Task<ActionResult<List<DonationDto>>> GetDonations(
         [FromQuery] int? donorId,
         [FromQuery] int? typeId,
@@ -64,7 +66,31 @@ public class DonationsController : ControllerBase
         return Ok(donations.Select(ToDto).ToList());
     }
 
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Donor")]
+    [HttpGet("mine")]
+    public async Task<ActionResult<List<DonationDto>>> GetMyDonations()
+    {
+        var donorClaim = User.FindFirst(
+            AzilEdu.Api.Security.AppClaimTypes.DonorId)?.Value;
+
+        if (!int.TryParse(donorClaim, out var donorId))
+            return Forbid();
+
+        var donations = await _context.Donations
+            .Include(donation => donation.Donor)
+            .Include(donation => donation.DonationType)
+            .Include(donation => donation.DonationStatus)
+            .Where(donation => donation.DonorId == donorId)
+            .OrderByDescending(donation => donation.DonationDate)
+            .ThenByDescending(donation => donation.Id)
+            .ToListAsync();
+
+        return Ok(donations.Select(ToDto).ToList());
+    }
+
     [HttpGet("{id}")]
+    [Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
     public async Task<ActionResult<DonationDto>> GetDonationById(int id)
     {
         var donation = await _context.Donations
@@ -82,6 +108,8 @@ public class DonationsController : ControllerBase
     }
 
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
     public async Task<ActionResult<DonationDto>> CreateDonation(SaveDonationDto request)
     {
         var validationError = await ValidateDonationAsync(request);
@@ -120,6 +148,8 @@ public class DonationsController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
     public async Task<IActionResult> UpdateDonation(int id, SaveDonationDto request)
     {
         var donation = await _context.Donations.FindAsync(id);
@@ -152,6 +182,8 @@ public class DonationsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
     public async Task<IActionResult> DeleteDonation(int id)
     {
         var donation = await _context.Donations.FindAsync(id);
@@ -169,42 +201,55 @@ public class DonationsController : ControllerBase
 
     private async Task<string?> ValidateDonationAsync(SaveDonationDto request)
     {
+        if (request.DonorId <= 0)
+            return "Donator je obavezan.";
+
+        if (request.DonationTypeId <= 0)
+            return "Tip donacije je obavezan.";
+
+        if (request.DonationStatusId <= 0)
+            return "Status donacije je obavezan.";
+
         var donorExists = await _context.Donors.AnyAsync(d => d.Id == request.DonorId);
 
         if (!donorExists)
-        {
             return "Odabrani donator ne postoji.";
-        }
 
         var type = await _context.DonationTypes
             .FirstOrDefaultAsync(t => t.Id == request.DonationTypeId);
 
         if (type is null)
-        {
             return "Odabrani tip donacije ne postoji.";
-        }
 
         var statusExists = await _context.DonationStatuses
             .AnyAsync(s => s.Id == request.DonationStatusId);
 
         if (!statusExists)
-        {
             return "Odabrani status donacije ne postoji.";
-        }
 
-        if (type.Name == "Novčana")
+        if (request.DonationDate.Date > DateTime.Today)
+            return "Datum donacije ne smije biti u budućnosti.";
+
+        if (request.Quantity.HasValue && request.Quantity.Value < 0)
+            return "Količina ne smije biti negativna.";
+
+        if (request.EstimatedValue.HasValue && request.EstimatedValue.Value < 0)
+            return "Procijenjena vrijednost ne smije biti negativna.";
+
+        var isMoneyDonation = type.Name == "Novčana";
+
+        if (isMoneyDonation)
         {
             if (!request.Amount.HasValue || request.Amount.Value <= 0)
-            {
-                return "Novčana donacija mora imati iznos veći od nule.";
-            }
+                return "Za novčanu donaciju potrebno je upisati iznos veći od nule.";
         }
         else
         {
             if (string.IsNullOrWhiteSpace(request.ItemName))
-            {
-                return "Materijalna donacija mora imati naziv stvari.";
-            }
+                return "Za materijalnu donaciju potrebno je upisati naziv donacije.";
+
+            if (!request.Quantity.HasValue || request.Quantity.Value <= 0)
+                return "Za materijalnu donaciju potrebno je upisati količinu veću od nule.";
         }
 
         return null;
@@ -228,9 +273,9 @@ public class DonationsController : ControllerBase
                     : donation.Donor.LastName + " " + donation.Donor.FirstName)
                 : string.Empty,
             DonationTypeId = donation.DonationTypeId,
-            DonationTypeName = donation.DonationType != null ? donation.DonationType.Name : string.Empty,
+            DonationType = donation.DonationType != null ? donation.DonationType.Name : string.Empty,
             DonationStatusId = donation.DonationStatusId,
-            Status = donation.DonationStatus != null ? donation.DonationStatus.Name : string.Empty
+            DonationStatus = donation.DonationStatus != null ? donation.DonationStatus.Name : string.Empty
         };
     }
 }

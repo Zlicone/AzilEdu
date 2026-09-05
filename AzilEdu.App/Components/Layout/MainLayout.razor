@@ -1,21 +1,56 @@
-﻿@inherits LayoutComponentBase
+﻿@using AzilEdu.App.Services
+@inject CurrentUserService CurrentUser
+@inject NavigationManager Navigation
+@inherits LayoutComponentBase
 
 <MudThemeProvider />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
-    <MudLayout>
-        <MudAppBar Elevation="1" Color="Color.Primary">
-            <MudText Typo="Typo.h6">AzilEdu</MudText>"
-            <MudSpacer />
-            <MudText Typo="Typo.body2">Sustav za upravljanje  </MudText>
-        </MudAppBar>
+
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Primary">
+        <MudText Typo="Typo.h6">AzilEdu</MudText>
+        <MudSpacer />
+        <MudText Typo="Typo.body2">Sustav za upravljanje</MudText>
+    </MudAppBar>
 
     <MudDrawer Open="true" Elevation="1" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always">
         <NavMenu />
     </MudDrawer>
 
     <MudMainContent Class="pa-6 mt-16">
-        @Body
+        @if (!CurrentUser.IsInitialized)
+        {
+            <div class="d-flex justify-center pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </div>
+        }
+        else
+        {
+            @Body
+        }
     </MudMainContent>
-    </MudLayout>
+</MudLayout>
+
+@code
+{
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        await CurrentUser.InitializeAsync();
+
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+
+        if (!CurrentUser.IsLoggedIn &&
+            !relativePath.StartsWith("login", StringComparison.OrdinalIgnoreCase))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+}

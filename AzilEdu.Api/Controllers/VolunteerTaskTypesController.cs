@@ -7,6 +7,8 @@ namespace AzilEdu.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Microsoft.AspNetCore.Authorization.Authorize(
+    Policy = AzilEdu.Api.Security.AuthorizationPolicies.Staff)]
 public class VolunteerTaskTypesController : ControllerBase
 {
     private readonly AzilEduDbContext _context;

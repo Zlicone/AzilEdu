@@ -47,7 +47,8 @@ else
             }
         </MudSelect>
 
-        <MudDatePicker Label="Datum donacije" @bind-Date="donationDate" Class="mb-3" />
+        <MudDatePicker Label="Datum donacije" @bind-Date="donationDate"
+                       MaxDate="DateTime.Today" Class="mb-3" />
 
         @if (IsMoneyDonation())
         {
@@ -65,6 +66,33 @@ else
         }
 
         <MudTextField Label="Napomena" @bind-Value="model.Notes" Lines="3" Immediate="true" Class="mb-4" />
+
+        <MudPaper Class="pa-4 mt-4" Outlined="true">
+            <MudText Typo="Typo.h6" Class="mb-2">AI zahvala donatoru</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.End" Spacing="2">
+                <MudSelect T="string" Label="Ton poruke" @bind-Value="selectedTone" Variant="Variant.Outlined">
+                    <MudSelectItem Value='@("Topao")'>Topao</MudSelectItem>
+                    <MudSelectItem Value='@("Formalan")'>Formalan</MudSelectItem>
+                    <MudSelectItem Value='@("Kratak")'>Kratak</MudSelectItem>
+                </MudSelect>
+                <MudButton ButtonType="ButtonType.Button"
+                           OnClick="GenerateThankYou"
+                           Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           Disabled="isGeneratingThankYou">
+                    @(isGeneratingThankYou ? "Generiram..." : "Generiraj zahvalu")
+                </MudButton>
+            </MudStack>
+
+            @if (!string.IsNullOrWhiteSpace(thankYouText))
+            {
+                <MudTextField @bind-Value="thankYouText"
+                              Label="Uredivi prijedlog poruke"
+                              Lines="4"
+                              Variant="Variant.Outlined"
+                              Class="mt-3" />
+            }
+        </MudPaper>
 
         <MudButton ButtonType="ButtonType.Button"
                    OnClick="UpdateDonation"
@@ -155,39 +183,39 @@ else
 
     private string? ValidateForm()
     {
-        if (model.DonorId == 0)
-        {
-            return "Donator je obavezan.";
-        }
+        if (model.DonorId <= 0)
+            return "Odaberi donatora.";
 
-        if (model.DonationTypeId == 0)
-        {
-            return "Tip donacije je obavezan.";
-        }
+        if (model.DonationTypeId <= 0)
+            return "Odaberi tip donacije.";
 
-        if (model.DonationStatusId == 0)
-        {
-            return "Status donacije je obavezan.";
-        }
+        if (model.DonationStatusId <= 0)
+            return "Odaberi status donacije.";
 
         if (!donationDate.HasValue)
-        {
-            return "Datum donacije je obavezan.";
-        }
+            return "Odaberi datum donacije.";
+
+        if (donationDate.Value.Date > DateTime.Today)
+            return "Datum donacije ne smije biti u budućnosti.";
+
+        if (model.Quantity.HasValue && model.Quantity.Value < 0)
+            return "Količina ne smije biti negativna.";
+
+        if (model.EstimatedValue.HasValue && model.EstimatedValue.Value < 0)
+            return "Procijenjena vrijednost ne smije biti negativna.";
 
         if (IsMoneyDonation())
         {
             if (!model.Amount.HasValue || model.Amount.Value <= 0)
-            {
-                return "Novčana donacija mora imati iznos veći od nule.";
-            }
+                return "Za novčanu donaciju upiši iznos veći od nule.";
         }
         else
         {
             if (string.IsNullOrWhiteSpace(model.ItemName))
-            {
-                return "Materijalna donacija mora imati naziv stvari.";
-            }
+                return "Upiši naziv materijalne donacije ili usluge.";
+
+            if (!model.Quantity.HasValue || model.Quantity.Value <= 0)
+                return "Upiši količinu veću od nule.";
         }
 
         return null;
@@ -227,6 +255,59 @@ else
         catch (Exception ex)
         {
             errorMessage = $"Greška kod spremanja: {ex.Message}";
+        }
+    }
+
+    private string selectedTone = "Topao";
+    private string? thankYouText;
+    private bool isGeneratingThankYou;
+
+    private async Task GenerateThankYou()
+    {
+        isGeneratingThankYou = true;
+        errorMessage = null;
+
+        try
+        {
+            var donorName = donors
+                .FirstOrDefault(item => item.Id == model.DonorId)?.Name
+                ?? "Donator";
+
+            var donationType = types
+                .FirstOrDefault(item => item.Id == model.DonationTypeId)?.Name
+                ?? "Donacija";
+
+            var donationValue = model.Amount.HasValue
+                ? $"{model.Amount.Value:N2} €"
+                : string.IsNullOrWhiteSpace(model.ItemName)
+                    ? "nije navedena"
+                    : model.ItemName;
+
+            var response = await Http.PostAsJsonAsync("api/ai/text", new AiTextRequestDto
+            {
+                Purpose = "donor-thank-you",
+                Input =
+                    $"Ton: {selectedTone}; Donator: {donorName}; " +
+                    $"Tip donacije: {donationType}; Vrijednost ili sadržaj: {donationValue}; " +
+                    $"Datum: {model.DonationDate:d}."
+            });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                errorMessage = await response.Content.ReadAsStringAsync();
+                return;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<AiTextResponseDto>();
+            thankYouText = result?.Text;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Zahvalu nije moguće generirati: {ex.Message}";
+        }
+        finally
+        {
+            isGeneratingThankYou = false;
         }
     }
 }

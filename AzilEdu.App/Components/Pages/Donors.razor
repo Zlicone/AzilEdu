@@ -82,8 +82,8 @@ else
               Bordered="true"
               Dense="true">
         <HeaderContent>
-            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => GetDisplayName(x))">Donator</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.DonorTypeName)">Tip</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.DisplayName)">Donator</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.Type)">Tip</MudTableSortLabel></MudTh>
             <MudTh>Email</MudTh>
             <MudTh>Telefon</MudTh>
             <MudTh><MudTableSortLabel SortBy="new Func<DonorDto, object>(x => x.City)">Grad</MudTableSortLabel></MudTh>
@@ -93,8 +93,8 @@ else
         </HeaderContent>
 
         <RowTemplate>
-            <MudTd DataLabel="Donator">@GetDisplayName(context)</MudTd>
-            <MudTd DataLabel="Tip">@context.DonorTypeName</MudTd>
+            <MudTd DataLabel="Donator">@context.DisplayName</MudTd>
+            <MudTd DataLabel="Tip">@context.Type</MudTd>
             <MudTd DataLabel="Email">@context.Email</MudTd>
             <MudTd DataLabel="Telefon">@context.Phone</MudTd>
             <MudTd DataLabel="Grad">@context.City</MudTd>
@@ -151,16 +151,6 @@ else
         }
     }
 
-    private string GetDisplayName(DonorDto donor)
-    {
-        if (!string.IsNullOrWhiteSpace(donor.OrganizationName))
-        {
-            return donor.OrganizationName;
-        }
-
-        return $"{donor.LastName} {donor.FirstName}".Trim();
-    }
-
     private bool FilterDonors(DonorDto donor)
     {
         if (!string.IsNullOrWhiteSpace(searchString))
@@ -179,7 +169,7 @@ else
         }
 
         if (!string.IsNullOrWhiteSpace(selectedType) &&
-            !string.Equals(donor.DonorTypeName, selectedType, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(donor.Type, selectedType, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

@@ -1,6 +1,12 @@
 using AzilEdu.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using AzilEdu.Shared.Models;
+using AzilEdu.Api.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using AzilEdu.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +21,64 @@ builder.Services.AddOpenApi();
 builder.Services.AddDbContext<AzilEduDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
+var jwtOptions = jwtSection.Get<JwtOptions>()
+    ?? throw new InvalidOperationException("Nedostaje Jwt konfiguracija.");
+
+if (jwtOptions.SigningKey.Length < 32)
+    throw new InvalidOperationException(
+        "Jwt:SigningKey mora imati najmanje 32 znaka.");
+
+builder.Services.Configure<JwtOptions>(jwtSection);
+builder.Services.AddScoped<JwtTokenService>();
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtOptions.Issuer,
+            ValidateAudience = true,
+            ValidAudience = jwtOptions.Audience,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromSeconds(30)
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+
+    options.AddPolicy(
+        AuthorizationPolicies.Staff,
+        policy => policy.RequireRole("Admin", "Employee"));
+
+    options.AddPolicy(
+        AuthorizationPolicies.AdminOnly,
+        policy => policy.RequireRole("Admin"));
+});
+
+builder.Services.Configure<AiOptions>(
+    builder.Configuration.GetSection(AiOptions.SectionName));
+
+builder.Services.AddScoped<MockAiService>();
+builder.Services.AddScoped<OpenAiService>();
+
+builder.Services.AddScoped<IAiService>(services =>
+{
+    var provider = builder.Configuration["Ai:Provider"];
+
+    return string.Equals(provider, "OpenAI", StringComparison.OrdinalIgnoreCase)
+        ? services.GetRequiredService<OpenAiService>()
+        : services.GetRequiredService<MockAiService>();
+});
 
 var app = builder.Build();
 
@@ -316,6 +380,47 @@ using (var scope = app.Services.CreateScope())
         await db.SaveChangesAsync();
     }
 
+    if (!await db.Volunteers.AnyAsync())
+    {
+        db.Volunteers.AddRange(
+            new Volunteer
+            {
+                FirstName = "Ivana",
+                LastName = "Barišić",
+                Email = "ivana.barisic@example.com",
+                Phone = "091 234 5678",
+                Skills = "Šetnja pasa, socijalizacija",
+                AvailableFrom = new DateTime(2026, 3, 1),
+                Notes = "Dolazi vikendom.",
+                VolunteerStatusId = 2
+            },
+            new Volunteer
+            {
+                FirstName = "Tomislav",
+                LastName = "Grgić",
+                Email = "tomislav.grgic@example.com",
+                Phone = "098 765 4321",
+                Skills = "Prijevoz, administracija",
+                AvailableFrom = new DateTime(2026, 5, 10),
+                Notes = "Ima kombi.",
+                VolunteerStatusId = 2
+            },
+            new Volunteer
+            {
+                FirstName = "Marta",
+                LastName = "Vuković",
+                Email = "marta.vukovic@example.com",
+                Phone = "095 111 2233",
+                Skills = "Hranjenje, čišćenje",
+                AvailableFrom = null,
+                Notes = "Privremeno nedostupna.",
+                VolunteerStatusId = 3
+            }
+        );
+
+        await db.SaveChangesAsync();
+    }
+
     if (!await db.Donations.AnyAsync())
     {
         var firstDonor = await db.Donors.OrderBy(d => d.Id).FirstOrDefaultAsync();
@@ -389,6 +494,8 @@ using (var scope = app.Services.CreateScope())
 
             await db.SaveChangesAsync();
         }
+
+        await AppUserSeeder.SeedAsync(db);
     }
 }
 
@@ -398,10 +505,10 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseStaticFiles();
 app.UseHttpsRedirection();
-
+app.UseAuthentication();      
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
